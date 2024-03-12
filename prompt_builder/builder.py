@@ -4,16 +4,15 @@ This script version controls a prompt by producing a prompt YAML under `prompts`
 Refer to `prompt_builder/docs` to understand the appropriate structure of the prompt YAML.
 
 To run this script, make sure `sandbox` contains the updated prompt and run the following command in the terminal:
-    python prompt_builder.py
+    python builder.py
 """
 import os
 import sys
-
 import yaml
 
-from prompt_constants import PROMPT_PATH
-import prompt_parser
-import prompt_utils
+from constants import PROMPT_PATH
+import parser
+import utils
 
 def get_metadata_from_yaml(prompt_dict):
     """
@@ -51,11 +50,11 @@ def save_prompt():
         - Writes the prompt YAML to the version control directory.
     """
     experiment_name, prompt_description, prompt_version = get_metadata_from_yaml(prompt_dict)
-    experiment_directory = prompt_utils.get_experiment_directory(experiment_name)
+    experiment_directory = utils.get_experiment_directory(experiment_name)
     os.makedirs(experiment_directory, exist_ok=True) # Create directory if it doesn't exist
 
     # Write prompt YAML to version control directory
-    versioned_prompt_path = prompt_utils.get_prompt_path(experiment_name, prompt_description, prompt_version)
+    versioned_prompt_path = utils.get_prompt_path(experiment_name, prompt_description, prompt_version)
     os.system("cp {} {}".format(PROMPT_PATH, versioned_prompt_path))
 
 if __name__ == "__main__":
@@ -66,7 +65,7 @@ if __name__ == "__main__":
     
     # 1.1) Check if prompt already exists
     experiment_name, prompt_description, prompt_version = get_metadata_from_yaml(prompt_dict)
-    if prompt_utils.check_if_prompt_exists(experiment_name, prompt_description, prompt_version):
+    if utils.check_if_prompt_exists(experiment_name, prompt_description, prompt_version):
         if input("Prompt already exists. Do you want to overwrite it? (y/n) ") != "y":
             sys.exit()
     
@@ -74,7 +73,7 @@ if __name__ == "__main__":
     print("Validating prompt YAML...")
     major, minor, patch = prompt_version.split(".")
     if major == "1": # e.g. 1.0.0
-        prompt_parser.prompt_validator_v1(prompt_dict)
+        parser.prompt_validator_v1(prompt_dict)
     else:
         raise NotImplementedError("Prompt parsing version not supported.")
 

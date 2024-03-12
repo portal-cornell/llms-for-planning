@@ -4,7 +4,7 @@ This module validates and parses the YAML prompt file into messages for an LLM t
 import argparse
 import yaml
 
-import prompt_utils
+import utils
 
 def prompt_validator_v1(prompt_dict):
     """Validates the prompt YAML.
@@ -91,7 +91,7 @@ def parse_messages(experiment_name, prompt_description, prompt_version):
             - If the data tag is not implemented.
     """
     # 1) Get prompt dict
-    prompt_path = prompt_utils.get_prompt_path(experiment_name, prompt_description, prompt_version)
+    prompt_path = utils.get_prompt_path(experiment_name, prompt_description, prompt_version)
     with open(prompt_path, "r") as f:
         prompt_dict = yaml.safe_load(f)
     
