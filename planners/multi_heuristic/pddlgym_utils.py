@@ -2,6 +2,7 @@ from copy import deepcopy
 import imageio
 import matplotlib.pyplot as plt
 import random
+import tempfile
 
 import pddlgym
 
@@ -55,6 +56,23 @@ def did_reach_goal(state, goal):
             Whether the given state satisfies the given goal.
     """
     return pddlgym.inference.check_goal(state, goal)
+
+def get_image_path(env):
+    """Saves the environment render to a file whose name is returned.
+
+    Parameters:
+        env (gym.Env)
+            The environment to render.
+    
+    Returns:
+        file_name (str)
+            The name of the file that the render was saved to.
+    """
+    img = env.render()
+    plt.close()
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+        imageio.imsave(temp_file.name, img)
+        return temp_file.name
 
 def render_pddlgym(env, step_time, render=False, close=False):
     """Renders the environment and returns the image.
