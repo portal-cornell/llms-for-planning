@@ -32,6 +32,7 @@ def get_valid_actions(env, obs):
             The valid actions for the given observation.
     """
     all_actions = env.action_space.all_ground_literals(obs)
+    all_actions = sorted(all_actions)
     valid_actions = []
     for action in all_actions:
         env_copy = deepcopy(env)
