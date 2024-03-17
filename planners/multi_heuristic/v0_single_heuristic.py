@@ -14,86 +14,7 @@ import random
 from tqdm import tqdm
 
 import pddlgym_utils
-
-def generate_plan():
-    # TODO: Use LLM
-    return None
-
-def get_actions_to_propose_cheap(graph, env, state):
-    """Returns the actions to propose to reach the goal.
-
-    This performs a set difference between the valid actions and the actions already taken in the graph
-    to ensure that the same action is not proposed twice; however, actions may lead to states that have
-    already been visited.
-
-    Parameters:
-        graph (nx.DiGraph)
-            The graph to propose actions in.
-        env (gym.Env)
-            The environment to propose actions in.
-        state (object)
-            The current state of the environment.
-    
-    Returns:
-        actions_to_propose (list)
-            The actions to propose to reach the goal.
-    """
-    valid_actions = pddlgym_utils.get_valid_actions(env, state)
-    actions_taken = [graph[hash(state)][node]["action"] for node in graph.successors(hash(state))]
-    return list(set(valid_actions) - set(actions_taken))
-
-def get_actions_to_propose(graph, env, state):
-    """Returns the actions to propose to reach the goal.
-
-    This function is similar to get_actions_to_propose_cheap, but it checks if the next state has already
-    been visited in the graph before proposing the action.
-
-    Parameters:
-        graph (nx.DiGraph)
-            The graph to propose actions in.
-        env (gym.Env)
-            The environment to propose actions in.
-        state (object)
-            The current state of the environment.
-    
-    Returns:
-        actions_to_propose (list)
-            The actions to propose to reach the goal.
-    """
-    valid_actions = pddlgym_utils.get_valid_actions(env, state)
-    actions_to_propose = []
-    for action in valid_actions:
-        env_copy = deepcopy(env)
-        next_state, _, _, _, _ = env_copy.step(action)
-        if hash(next_state) not in graph.nodes:
-            actions_to_propose.append(action)
-    return actions_to_propose
-
-def propose_actions(graph, env, state, plan, num_actions=1):
-    """Proposes an action(s) to take in order to reach the goal.
-
-    This performs a set difference between the valid actions and the actions already taken in the graph
-    to ensure that the same action is not proposed twice.
-
-    Parameters:
-        graph (nx.DiGraph)
-            The graph to propose actions in.
-        env (gym.Env)
-            The environment to propose actions in.
-        state (object)
-            The current state of the environment.
-        plan (object)
-            The plan to use to propose actions.
-        num_actions (int)
-            The number of actions to propose.
-    
-    Returns:
-        actions (list)
-            The action(s) to take in order to reach the goal.
-    """
-    # TODO: Use LLM
-    actions_to_propose = get_actions_to_propose(graph, env, state)
-    return random.sample(actions_to_propose, k=num_actions)
+from policies import NAME_TO_POLICY
 
 def compute_next_states(graph, env, current_state, actions):
     """Computes the next states to add as nodes in the graph with directed action edges from the current state.
@@ -116,36 +37,6 @@ def compute_next_states(graph, env, current_state, actions):
         next_state, _, _, _, _ = env_copy.step(action)
         graph.add_node(hash(next_state), state=next_state, env=env_copy)
         graph.add_edge(hash(current_state), hash(next_state), action=action)
-
-def select_state(graph, plan, goal):
-    """Selects the next state to propose actions from.
-
-    Parameters:
-        graph (nx.DiGraph)
-            The graph to select the next state from.
-        plan (object)
-            The plan to use to select the next state.
-        goal (object)
-            The goal to reach.
-    
-    Returns:
-        selected_state (object)
-            The next state to propose actions from.
-    
-    Raises:
-        AssertionError
-            There are no states left to propose actions from. This should never happen
-            since the goal should be reached before this point.
-    """
-    # TODO: Use LLM
-    sampled_nodes = random.sample(graph.nodes, k=len(graph.nodes))
-    for node in sampled_nodes:
-        state = graph.nodes[node]['state']
-        env = graph.nodes[node]['env']
-        if pddlgym_utils.did_reach_goal(state, goal) or len(get_actions_to_propose(graph, env, state)) > 0:
-            # A goal state is in the graph or there are still actions left to propose
-            return state
-    assert False, "No states left to propose actions from."
 
 def style_goal_nodes(graph, current_state, next_state):
     """Styles the goal nodes and edges in the graph.
@@ -170,11 +61,53 @@ def style_goal_nodes(graph, current_state, next_state):
     graph[current_state][next_state]["color"] = "red"
     graph[current_state][next_state]["penwidth"] = "6"
 
-def plan(env, initial_state, goal, max_steps=20):
-    """Follows the V0 single heuristic planning algorithm to output a sequence of actions to the goal."""
+def visualize_graph(graph, graph_file):
+    """Visualizes the graph and saves it to a file.
+    
+    Parameters:
+        graph (nx.DiGraph)
+            The graph to visualize.
+        graph_file (str)
+            The name of the file to save the graph to.
+
+    Side Effects:
+        - Creates temporary image files
+        - Modifies the graph's labels and images
+        - Saves the graph to a file
+    """
+    for node in graph.nodes:
+        graph.nodes[node]["label"] = ""
+        graph.nodes[node]["image"] = pddlgym_utils.get_image_path(graph.nodes[node]["env"])
+    for edge in graph.edges:
+        graph[edge[0]][edge[1]]["label"] = str(graph[edge[0]][edge[1]]["action"])
+    pygraphviz_graph = nx.nx_agraph.to_agraph(graph)
+    pygraphviz_graph.layout('dot')
+    pygraphviz_graph.draw(graph_file)
+
+def plan(plan_policy, env, initial_state, goal, max_steps=20):
+    """Follows the V0 single heuristic planning algorithm to output a sequence of actions to the goal.
+    
+    Parameters:
+        plan_policy (object)
+            The plan policy to use to generate a plan, propose actions, and select the next state.
+        env (gym.Env)
+            The environment to plan in.
+        initial_state (object)
+            The initial state of the environment.
+        goal (object)
+            The goal to reach.
+        max_steps (int)
+            The maximum number of steps to take to reach the goal.
+    
+    Returns:
+        action_sequence (list)
+            The sequence of actions to take to reach the goal.
+        graph (nx.DiGraph)
+            The graph of states and actions taken to reach the goal.
+    """
 
     # Generate plan
-    plan = generate_plan()
+    plan = plan_policy.generate_plan()
 
     # Follow plan to reach goal
     graph = nx.DiGraph()
@@ -185,11 +118,11 @@ def plan(env, initial_state, goal, max_steps=20):
     while not pddlgym_utils.did_reach_goal(selected_state, goal) and steps < max_steps:
         curr_env = graph.nodes[hash(selected_state)]["env"]
         # Propose actions
-        actions = propose_actions(graph, curr_env, selected_state, plan)
+        actions = plan_policy.propose_actions(graph, curr_env, selected_state, plan,)
         # Compute the next states to add as nodes in the graph with directed action edges from the current state
         compute_next_states(graph, curr_env, selected_state, actions)
         # Select next state
-        selected_state = select_state(graph, plan, goal)
+        selected_state = plan_policy.select_state(graph, plan, goal)
         steps += 1
         pbar.update(1)
     
@@ -206,28 +139,25 @@ def plan(env, initial_state, goal, max_steps=20):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--plan_policy", required=True, choices=NAME_TO_POLICY.keys(), help="The plan policy to use.")
     parser.add_argument("--env_name", required=True, help="The name of the environment.")
     parser.add_argument("--max_steps", type=int, default=20, help="The maximum number of steps to take to reach the goal.")
     parser.add_argument("--seed", type=int, default=42, help="The random seed to use.")
     parser.add_argument("--graph_file", required=False, help="The name of the file to save the graph to.")
+    # TODO: Move parser args to config file
+    parser.add_argument("--cheap", action="store_true", help="Whether to use the cheap version of the plan policy.")
+    parser.add_argument("--num_actions", type=int, default=1, help="The number of actions to propose.")
     args = parser.parse_args()
 
+    kwargs = {"cheap": args.cheap, "num_actions": args.num_actions}
+    plan_policy = NAME_TO_POLICY[args.plan_policy](kwargs) # TODO: Move kwargs to config file
     env_name = f"PDDLEnv{args.env_name.capitalize()}-v0"
     env = pddlgym_utils.make_pddlgym_env(env_name)
     random.seed(args.seed)
     initial_state, _ = env.reset()
     goal = initial_state.goal
-    action_sequence, graph = plan(env, initial_state, goal, max_steps=args.max_steps)
+    action_sequence, graph = plan(plan_policy, env, initial_state, goal, max_steps=args.max_steps)
 
     # Draw graph
     if args.graph_file is not None:
-        # Remove labels and add images to graph nodes
-        for node in graph.nodes:
-            graph.nodes[node]["label"] = ""
-            graph.nodes[node]["image"] = pddlgym_utils.get_image_path(graph.nodes[node]["env"])
-        # Add action labels to edges
-        for edge in graph.edges:
-            graph[edge[0]][edge[1]]["label"] = str(graph[edge[0]][edge[1]]["action"])
-        pygraphviz_graph = nx.nx_agraph.to_agraph(graph)
-        pygraphviz_graph.layout('dot')
-        pygraphviz_graph.draw(args.graph_file)
+        visualize_graph(graph, args.graph_file)
