@@ -114,9 +114,8 @@ def compute_next_states(graph, env, current_state, actions):
     for action in actions:
         env_copy = deepcopy(env)
         next_state, _, _, _, _ = env_copy.step(action)
-        img_path = pddlgym_utils.get_image_path(env_copy)
-        graph.add_node(hash(next_state), label="", image=img_path, state=next_state, env=env_copy)
-        graph.add_edge(hash(current_state), hash(next_state), label=str(action), action=action)
+        graph.add_node(hash(next_state), state=next_state, env=env_copy)
+        graph.add_edge(hash(current_state), hash(next_state), action=action)
 
 def select_state(graph, plan, goal):
     """Selects the next state to propose actions from.
@@ -179,8 +178,7 @@ def plan(env, initial_state, goal, max_steps=20):
 
     # Follow plan to reach goal
     graph = nx.DiGraph()
-    img_path = pddlgym_utils.get_image_path(env)
-    graph.add_node(hash(initial_state), label="", image=img_path, state=initial_state, env=deepcopy(env))
+    graph.add_node(hash(initial_state), state=initial_state, env=deepcopy(env))
     selected_state = initial_state
     steps = 0
     pbar = tqdm(total=max_steps)
@@ -209,10 +207,11 @@ def plan(env, initial_state, goal, max_steps=20):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--env_name", required=True, help="The name of the environment.")
-    parser.add_argument("--graph_file", required=True, help="The name of the file to save the graph to.")
     parser.add_argument("--max_steps", type=int, default=20, help="The maximum number of steps to take to reach the goal.")
     parser.add_argument("--seed", type=int, default=42, help="The random seed to use.")
+    parser.add_argument("--graph_file", required=False, help="The name of the file to save the graph to.")
     args = parser.parse_args()
+
     env_name = f"PDDLEnv{args.env_name.capitalize()}-v0"
     env = pddlgym_utils.make_pddlgym_env(env_name)
     random.seed(args.seed)
@@ -221,6 +220,14 @@ if __name__ == "__main__":
     action_sequence, graph = plan(env, initial_state, goal, max_steps=args.max_steps)
 
     # Draw graph
-    pygraphviz_graph = nx.nx_agraph.to_agraph(graph)
-    pygraphviz_graph.layout('dot')
-    pygraphviz_graph.draw(args.graph_file)
+    if args.graph_file is not None:
+        # Remove labels and add images to graph nodes
+        for node in graph.nodes:
+            graph.nodes[node]["label"] = ""
+            graph.nodes[node]["image"] = pddlgym_utils.get_image_path(graph.nodes[node]["env"])
+        # Add action labels to edges
+        for edge in graph.edges:
+            graph[edge[0]][edge[1]]["label"] = str(graph[edge[0]][edge[1]]["action"])
+        pygraphviz_graph = nx.nx_agraph.to_agraph(graph)
+        pygraphviz_graph.layout('dot')
+        pygraphviz_graph.draw(args.graph_file)
