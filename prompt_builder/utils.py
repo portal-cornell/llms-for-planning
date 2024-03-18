@@ -1,6 +1,6 @@
 import os
 
-from constants import PROMPT_HISTORY_PATH
+from prompt_builder.constants import PROMPT_HISTORY_PATH
 
 def get_prompt_file_name(prompt_version, prompt_description):
     """Constructs the prompt file name.

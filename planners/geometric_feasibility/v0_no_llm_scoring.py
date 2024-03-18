@@ -15,7 +15,7 @@ import heapq
 import numpy as np
 import random
 
-import sim2d_utils
+import planners.geometric_feasibility.sim2d_utils as sim2d_utils
 
 PERCEPTION_CONSTANTS = {
     "shelf_heights": sim2d_utils.get_shelf_heights(),
@@ -29,6 +29,16 @@ PERCEPTION_CONSTANTS = {
             "width": 0.1,
             "height": 0.15,
             "color": (84, 54, 57)
+        },
+        "grape_juice": {
+            "width": 0.15,
+            "height": 0.3,
+            "color": (164, 114, 181)
+        },
+        "orange_juice": {
+            "width": 0.15,
+            "height": 0.3,
+            "color": (255, 165, 0)
         },
         "apple": {
             "width": 0.1,
@@ -44,10 +54,26 @@ PERCEPTION_CONSTANTS = {
             "width": 0.05,
             "height": 0.2,
             "color": (240, 235, 110)
+        },
+        "orange": {
+            "width": 0.1,
+            "height": 0.1,
+            "color": (255, 165, 0)
+        },
+        "ketchup": {
+            "width": 0.125,
+            "height": 0.25,
+            "color": (255, 0, 0)
+        },
+        "mustard": {
+            "width": 0.125,
+            "height": 0.25,
+            "color": (255, 255, 0)
         }
     }
 }
-def generate_plan():
+
+def generate_random_plan():
     """Generates a plan for placing objects in the fridge.
 
     Returns:
@@ -64,6 +90,50 @@ def generate_plan():
         object_bbox = (-1, -1, object_dict["width"], object_dict["height"])
         location_bbox = (0, PERCEPTION_CONSTANTS["shelf_heights"][loc_name], 1, 0.33)
         skill = ("pickandplace", (obj_name, object_bbox, location_bbox))
+        high_level_plan.append(skill)
+    return high_level_plan
+
+def parse_language_skill(language_skill):
+    """Parses a language skill into an action skill.
+    
+    TODO: Be consistent with naming
+
+    Parameters:
+        text_plan (str)
+            The text plan to parse.
+    
+    Returns:
+        skill (tuple)
+            The skill to execute in the environment.
+    """
+    skill_name, params = language_skill.split("(", 1)
+    assert skill_name == "pickandplace"
+    obj_name, loc_name = params.split(", ")
+    loc_name, _ = loc_name.split(")", 1)
+    obj_name = obj_name.strip("'")
+    obj_name = obj_name.strip('"')
+    loc_name = loc_name.strip("'")
+    loc_name = loc_name.strip('"')
+    object_dict = PERCEPTION_CONSTANTS["objects"][obj_name]
+    object_bbox = (-1, -1, object_dict["width"], object_dict["height"])
+    location_bbox = (0, PERCEPTION_CONSTANTS["shelf_heights"][loc_name], 1, 0.33)
+    return ("pickandplace", (obj_name, object_bbox, location_bbox))
+
+def generate_plan(text_plan):
+    """Generates a plan for placing objects in the fridge.
+
+    Parameters:
+        text_plan (str)
+            The text plan to convert into a skill.
+
+    Returns:
+        plan (list)
+            A list of skills to execute in the environment.
+    """
+    # Split the text plan into high-level language skills
+    high_level_plan = []
+    for language_skill in text_plan.split("\n"):
+        skill = parse_language_skill(language_skill)
         high_level_plan.append(skill)
     return high_level_plan
 
@@ -114,7 +184,7 @@ def score_sample(env, sample, sample_locs):
     score += average_packing_space_left(env, sample, sample_locs)
     return score
 
-def plan(env, num_plans, beam_size, num_samples):
+def plan(env, num_plans, beam_size, num_samples, text_plans=[]):
     """Follows the V0 planning algorithm to output the best sequence of object placements.
 
     The V0 planning algorithm first generates N high-level language plans by few-shot prompting
@@ -137,12 +207,17 @@ def plan(env, num_plans, beam_size, num_samples):
             The size of the beam (B) to maintain.
         num_samples (int)
             The number of samples (C) to take for each object placement.
+        text_plans (list)
+            The text plans to convert into skills.
     """
     # Generate N plans
     high_level_plans = []
     for i in range(num_plans): # TODO: Parallelize
         print(f"Plan {i+1}/{num_plans}")
-        high_level_plan = generate_plan() # Generate correct plan
+        if text_plans:
+            high_level_plan = generate_plan(text_plans[i]) # Generate correct plan
+        else:
+            high_level_plan = generate_random_plan()
         high_level_plans.append(high_level_plan)
     
     # Generate best object placements for each plan

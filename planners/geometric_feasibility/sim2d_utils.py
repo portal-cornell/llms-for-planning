@@ -3,7 +3,7 @@ import imageio
 import gym
 import random
 
-import grocery_perception.planning_sims
+import planners.geometric_feasibility.grocery_perception.planning_sims
 
 def make_sim2d_env(render_mode="human"):
     """Returns the Sim2D environment.
@@ -43,9 +43,9 @@ def get_shelf_heights():
             A dictionary mapping the shelf number to its height.
     """
     return {
-        "bottom": 0.0,
-        "middle": 0.33,
-        "top": 0.66
+        "bottom shelf": 0.0,
+        "middle shelf": 0.33,
+        "top shelf": 0.66
     }
 
 def get_action(env, mode):

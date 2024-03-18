@@ -4,7 +4,7 @@ This module validates and parses the YAML prompt file into messages for an LLM t
 import argparse
 import yaml
 
-import utils
+import prompt_builder.utils as utils
 
 def prompt_validator_v1(prompt_dict):
     """Validates the prompt YAML.

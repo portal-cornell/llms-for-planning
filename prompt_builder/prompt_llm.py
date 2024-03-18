@@ -8,7 +8,7 @@ import time
 import openai
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-import parser
+import prompt_builder.parser as parser
 
 def call_openai_chat(messages, model="gpt-3.5-turbo", temperature=0.0, max_attempts=10, sleep_time=5):
     """Sends chat messages to OpenAI's chat API and returns a response if successful.
@@ -54,10 +54,12 @@ def call_openai_chat(messages, model="gpt-3.5-turbo", temperature=0.0, max_attem
             num_attempts += 1
     return response
 
-def prompt_llm(experiment_name, prompt_description, prompt_version, model, temperature, **kwargs):
+def prompt_llm(user_prompt, experiment_name, prompt_description, prompt_version, model, temperature, **kwargs):
     """Prompt an LLM with the given prompt and return the response.
 
     Parameters:
+        user_prompt (str)
+            The user prompt to parse.
         experiment_name (str)
             The name of the experiment for the prompt.
         prompt_description (str)
@@ -89,6 +91,7 @@ def prompt_llm(experiment_name, prompt_description, prompt_version, model, tempe
             - If the data tag is not implemented.
     """
     messages = parser.parse_messages(experiment_name, prompt_description, prompt_version)
+    messages.append({"role": "user", "content": user_prompt})
     max_attempts = kwargs.get('max_attempts', 10)
     sleep_time = kwargs.get('sleep_time', 5)
     debug = kwargs.get('debug', False)
@@ -102,6 +105,7 @@ def prompt_llm(experiment_name, prompt_description, prompt_version, model, tempe
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
+    argparser.add_argument("--user_prompt", required=True, help="The user prompt to parse.")
     argparser.add_argument("--experiment_name", required=True, help="The name of the experiment for the prompt.")
     argparser.add_argument("--prompt_description", required=True, help="The description of the prompt to test.")
     argparser.add_argument("--prompt_version", required=True, help="The version of the prompt to test.")
@@ -113,6 +117,7 @@ if __name__ == "__main__":
     args = argparser.parse_args()
 
     response = prompt_llm(
+        args.user_prompt,
         args.experiment_name,
         args.prompt_description,
         args.prompt_version,
