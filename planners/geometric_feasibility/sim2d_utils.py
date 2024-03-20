@@ -45,7 +45,7 @@ def get_shelf_heights():
     return {
         "bottom shelf": 0.0,
         "middle shelf": 0.33,
-        "top shelf": 0.66
+        "top shelf": 0.67
     }
 
 def get_action(env, mode):

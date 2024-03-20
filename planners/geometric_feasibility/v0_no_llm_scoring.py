@@ -20,55 +20,101 @@ import planners.geometric_feasibility.sim2d_utils as sim2d_utils
 PERCEPTION_CONSTANTS = {
     "shelf_heights": sim2d_utils.get_shelf_heights(),
     "objects": {
-        "milk": {
-            "width": 0.15,
-            "height": 0.3,
-            "color": (211, 219, 224)
-        },
-        "soda": {
-            "width": 0.1,
-            "height": 0.15,
-            "color": (84, 54, 57)
-        },
-        "grape_juice": {
-            "width": 0.15,
-            "height": 0.3,
-            "color": (164, 114, 181)
-        },
-        "orange_juice": {
-            "width": 0.15,
-            "height": 0.3,
-            "color": (255, 165, 0)
-        },
         "apple": {
             "width": 0.1,
             "height": 0.1,
-            "color": (242, 58, 77)
-        },
-        "watermelon": {
-            "width": 0.4,
-            "height": 0.25,
-            "color": (54, 125, 24)
+            "color": (242, 58, 77),
+            "image_path": "./planners/geometric_feasibility/assets/apple_crop.png"
         },
         "banana": {
-            "width": 0.05,
+            "width": 0.2,
             "height": 0.2,
-            "color": (240, 235, 110)
+            "color": (240, 235, 110),
+            "image_path": "./planners/geometric_feasibility/assets/banana_crop.png"
         },
-        "orange": {
+        "cherries": {
             "width": 0.1,
             "height": 0.1,
-            "color": (255, 165, 0)
+            "color": (0, 0, 0),
+            "image_path": "./planners/geometric_feasibility/assets/cherries_crop.png"
+        },
+        "chocolate_sauce": {
+            "width": 0.125,
+            "height": 0.25,
+            "color": (0, 0, 0),
+            "image_path": "./planners/geometric_feasibility/assets/chocolate_sauce_crop.png"
         },
         "ketchup": {
             "width": 0.125,
             "height": 0.25,
-            "color": (255, 0, 0)
+            "color": (0, 0, 0),
+            "image_path": "./planners/geometric_feasibility/assets/ketchup_crop.png"
+        },
+        "lettuce": {
+            "width": 0.2,
+            "height": 0.2,
+            "color": (0, 0, 0),
+            "image_path": "./planners/geometric_feasibility/assets/lettuce_crop.png"
+        },
+        "almond_milk": {
+            "width": 0.15,
+            "height": 0.3,
+            "color": (0, 0, 0),
+            "image_path": "./planners/geometric_feasibility/assets/milk_almond_crop.png"
+        },
+        "oat_milk": {
+            "width": 0.15,
+            "height": 0.3,
+            "color": (0, 0, 0),
+            "image_path": "./planners/geometric_feasibility/assets/milk_oat_crop.png"
+        },
+        "whole_milk": {
+            "width": 0.15,
+            "height": 0.3,
+            "color": (0, 0, 0),
+            "image_path": "./planners/geometric_feasibility/assets/milk_whole_crop.png"
         },
         "mustard": {
             "width": 0.125,
             "height": 0.25,
-            "color": (255, 255, 0)
+            "color": (255, 255, 0),
+            "image_path": "./planners/geometric_feasibility/assets/mustard_crop.png"
+        },
+        "onion": {
+            "width": 0.1,
+            "height": 0.1,
+            "color": (0, 0, 0),
+            "image_path": "./planners/geometric_feasibility/assets/onion_crop.png"
+        },
+        "orange": {
+            "width": 0.1,
+            "height": 0.1,
+            "color": (255, 165, 0),
+            "image_path": "./planners/geometric_feasibility/assets/orange_crop.png"
+        },
+        "pear": {
+            "width": 0.1,
+            "height": 0.2,
+            "color": (0, 0, 0),
+            "image_path": "./planners/geometric_feasibility/assets/pear_crop.png"
+        },
+        "potato": {
+            "width": 0.2,
+            "height": 0.1,
+            "color": (0, 0, 0),
+            "image_path": "./planners/geometric_feasibility/assets/potato_crop.png"
+        },
+        "salad_dressing": {
+            "width": 0.15,
+            "height": 0.3,
+            "color": (0, 0, 0),
+            "image_path": "./planners/geometric_feasibility/assets/salad_dressing_crop.png"
+        },
+        "tomato": {
+            "width": 0.1,
+            "height": 0.1,
+            "color": (0, 0, 0),
+            "image_path": "./planners/geometric_feasibility/assets/tomato_crop.png"
         }
     }
 }
@@ -133,8 +179,12 @@ def generate_plan(text_plan):
     # Split the text plan into high-level language skills
     high_level_plan = []
     for language_skill in text_plan.split("\n"):
-        skill = parse_language_skill(language_skill)
-        high_level_plan.append(skill)
+        try:
+            skill = parse_language_skill(language_skill)
+            high_level_plan.append(skill)
+        except:
+            print(f"Failed to parse language skill: {language_skill}")
+    print(high_level_plan)
     return high_level_plan
 
 def average_packing_space_left(env, sample, sample_locs):
@@ -148,7 +198,7 @@ def average_packing_space_left(env, sample, sample_locs):
         average_packing_space_left (float)
             The average packing space left in the environment.
     """
-    _, l_y1, _, h, _ = sample # TODO: Clean up
+    _, l_y1, _, h, _, _ = sample # TODO: Clean up
     average_width = sum([obj["width"] for obj in PERCEPTION_CONSTANTS["objects"].values()]) 
     average_width /= len(PERCEPTION_CONSTANTS["objects"])
     score = 0
@@ -231,6 +281,7 @@ def plan(env, num_plans, beam_size, num_samples, text_plans=[]):
             object_name, object_bbox, location_bbox = params
             _, _, o_w, o_h = object_bbox
             o_color = PERCEPTION_CONSTANTS["objects"][object_name]["color"]
+            o_img_path = PERCEPTION_CONSTANTS["objects"][object_name].get("image_path")
             l_x1, l_y1, l_w, _ = location_bbox
             candidates = []
             for score, action_sequence in beam:
@@ -243,6 +294,7 @@ def plan(env, num_plans, beam_size, num_samples, text_plans=[]):
                 sample_xs = list(np.linspace(l_x1, l_x1 + l_w, num_samples)) # Sample x
                 for sample_x in sample_xs:
                     sample_action = (sample_x, l_y1, o_w, o_h, o_color) # Convert to action (x, y, w, h)
+                    sample_action = sample_action + (o_img_path,) if o_img_path else sample_action
                     sample_score = score + score_sample(beam_env, sample_action, sample_xs) # Score
                     sample_action_sequence = action_sequence + (sample_action,)
                     candidates.append((sample_score, sample_action_sequence))

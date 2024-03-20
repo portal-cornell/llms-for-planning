@@ -24,13 +24,13 @@ if __name__ == "__main__":
     args = argparser.parse_args()
 
     random.seed(args.seed)
-    # Objects: ["milk", "soda", "grape_juice", "orange_juice", "apple", "watermelon", "banana", "orange", "ketchup", "mustard"]
+    # Objects: ["apple", "banana", "cherries", "chocolate_sauce", "ketchup", "lettuce", "almond_milk", "oat_milk", "whole_milk", "mustard", "onion", "orange", "pear", "potato", "salad_dressing", "tomato"]
     # Locations: ["top shelf", "middle shelf", "bottom shelf"]
     # Preference: ...
     user_prompt = """
-    Objects: ["apple", "ketchup", "orange_juice", "grape_juice", "soda", "orange", "mustard", "watermelon"]
+    Objects: ["apple", "banana", "cherries", "chocolate_sauce", "ketchup", "oat_milk", "whole_milk", "mustard", "potato", "salad_dressing", "tomato"]
     Locations: ["top shelf", "middle shelf", "bottom shelf"]
-    Preference: "Fruit on the top shelf, condiments on the bottom, drinks in the middle."
+    Preference: "Keep milk and chocolate together and then vegetables and condiments together"
     """
     text_plan = prompt_llm(
         user_prompt,
