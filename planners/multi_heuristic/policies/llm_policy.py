@@ -3,8 +3,8 @@ import random
 from .policy import PlanPolicy
 from . import utils
 
-class RandomPolicy(PlanPolicy):
-    """A plan policy that randomly proposes actions and selects next states."""
+class LLMPolicy(PlanPolicy):
+    """A plan policy that queries an LLM to propose actions and select next states."""
         
     def __init__(self, kwargs):
         """Initializes the random policy.
@@ -16,11 +16,8 @@ class RandomPolicy(PlanPolicy):
                     Whether to use the cheap version of the get_actions_to_propose function.
                 num_actions (int)
                     The number of actions to propose.
-
         """
         super().__init__(kwargs)
-        self.cheap = kwargs.get("cheap", False)
-        self.num_actions = kwargs.get("num_actions", 1)
     
     def generate_plan(self):
         """Generates a plan to reach the goal.
@@ -31,33 +28,14 @@ class RandomPolicy(PlanPolicy):
         """
         return None
     
-    def _actions_to_propose(self, graph, model, state):
-        """Returns the actions to propose to reach the goal.
-        
-        Parameters:
-            graph (nx.DiGraph)
-                The graph to propose actions in.
-            model (Model)
-                The model to propose actions with.
-            state (object)
-                The current state of the environment.
-        
-        Returns:
-            actions_to_propose (list)
-                The actions to propose to reach the goal.
-        """
-        if self.cheap:
-            return utils.get_actions_to_propose_cheap(graph, model, state)
-        return utils.get_actions_to_propose(graph, model, state)
-
-    def propose_actions(self, graph, model, state, plan):
+    def propose_actions(self, graph, env, state, plan):
         """Proposes an action(s) to take in order to reach the goal.
         
         Parameters:
             graph (nx.DiGraph)
                 The graph to propose actions in.
-            model (Model)
-                The model to propose actions with.
+            env (gym.Env)
+                The environment to propose actions in.
             state (object)
                 The current state of the environment.
             plan (object)
@@ -67,7 +45,7 @@ class RandomPolicy(PlanPolicy):
             NotImplementedError
                 This function should be implemented in a subclass.
         """
-        actions_to_propose = self._actions_to_propose(graph, model, state)
+        actions_to_propose = self._actions_to_propose(graph, env, state)
         return random.sample(actions_to_propose, k=min(self.num_actions, len(actions_to_propose)))
     
     def select_state(self, graph, plan, goal):
@@ -90,12 +68,4 @@ class RandomPolicy(PlanPolicy):
                 There are no states left to propose actions from. This should never happen
                 since the goal should be reached before this point.
         """
-        sampled_nodes = random.sample(graph.nodes, k=len(graph.nodes))
-        for node in sampled_nodes:
-            state = graph.nodes[node]['state']
-            model = graph.nodes[node]['model']
-            
-            if model.did_reach_goal(state, goal) or len(self._actions_to_propose(graph, model, state)) > 0:
-                # A goal state is in the graph or there are still actions left to propose
-                return state
-        assert False, "No states left to propose actions from."
+        pass

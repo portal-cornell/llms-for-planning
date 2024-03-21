@@ -54,10 +54,12 @@ def call_openai_chat(messages, model="gpt-3.5-turbo", temperature=0.0, max_attem
             num_attempts += 1
     return response
 
-def prompt_llm(experiment_name, prompt_description, prompt_version, model, temperature, **kwargs):
+def prompt_llm(user_prompt, experiment_name, prompt_description, prompt_version, model, temperature, **kwargs):
     """Prompt an LLM with the given prompt and return the response.
 
     Parameters:
+        user_prompt (str)
+            The user prompt to parse.
         experiment_name (str)
             The name of the experiment for the prompt.
         prompt_description (str)
@@ -89,6 +91,7 @@ def prompt_llm(experiment_name, prompt_description, prompt_version, model, tempe
             - If the data tag is not implemented.
     """
     messages = parser.parse_messages(experiment_name, prompt_description, prompt_version)
+    messages.append({"role": "user", "content": user_prompt})
     max_attempts = kwargs.get('max_attempts', 10)
     sleep_time = kwargs.get('sleep_time', 5)
     debug = kwargs.get('debug', False)
