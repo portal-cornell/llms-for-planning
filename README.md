@@ -4,23 +4,30 @@
 
 1. Create and activate your virtual environment. We recommend using [pyenv](https://github.com/pyenv/pyenv) and [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv). 
    ```sh
+   pyenv install 3.9.13
    pyenv virtualenv 3.9.13 llms-for-planning
    pyenv activate llms-for-planning
    ```
 2. Install [pygraphviz](https://pygraphviz.github.io/documentation/stable/install.html) and pip install it
     ```sh
     # Assuming you brew installed graphviz
+    pip install graphviz
     export GRAPHVIZ_DIR="$(brew --prefix graphviz)"
     pip install pygraphviz \
         --global-option=build_ext \
         --global-option="-I$GRAPHVIZ_DIR/include" \
         --global-option="-L$GRAPHVIZ_DIR/lib"
     ```
-3. Install the requirements
+3. Initialize and update submodules
+   ```
+   git submodule init
+   git submodule update
+   ```
+4. Install the requirements
    ```sh
    pip install -r requirements.txt
    ```
-4. Copy the `.envrctemplate` and fill in the necessary environment variables. Consider using [direnv](https://direnv.net/docs/hook.html).
+5. Copy the `.envrctemplate` and fill in the necessary environment variables. Consider using [direnv](https://direnv.net/docs/hook.html).
    ```sh
    cp .envrctemplate .envrc
    # Fill in variables and save file

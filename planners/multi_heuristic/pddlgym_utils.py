@@ -125,7 +125,8 @@ def get_action(env, obs, mode):
         action = valid_actions[int(input_action)]
     return action
 
-def play_env(env_name, max_steps=100, step_time=0.5, mode="random", render=False, save_gif=False):
+## add index
+def play_env(env_name, max_steps=100, step_time=0.5, index = None, mode="random", render=False, save_gif=False):
     """Play the environment with the given mode.
     
     Parameters:
@@ -144,6 +145,7 @@ def play_env(env_name, max_steps=100, step_time=0.5, mode="random", render=False
     """
     # Initialize environment
     env = make_pddlgym_env(env_name)
+    env.fix_problem_index(index)
     obs, _ = env.reset()
     # Render
     if render:
