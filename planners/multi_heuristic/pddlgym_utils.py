@@ -59,6 +59,19 @@ class Model:
         """
         raise NotImplementedError
     
+    def state_to_str(self, state):
+        """Returns a string representation of the state.
+        
+        Parameters:
+            state (object)
+                The state to convert to a string.
+        
+        Returns:
+            state_str (str)
+                The string representation of the state.
+        """
+        raise NotImplementedError
+    
 class PDDLGymModel(Model):
     """A model for PDDLGym environments."""
     
@@ -121,7 +134,24 @@ class PDDLGymModel(Model):
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
             imageio.imsave(temp_file.name, img)
             return temp_file.name
-
+    
+    def state_to_str(self, state):
+        """Returns a string representation of the state.
+        
+        Parameters:
+            state (object)
+                The state to convert to a string.
+        
+        Returns:
+            state_str (str)
+                The string representation of the state.
+        """
+        literals = [str(literal) for literal in state.literals]
+        objects = [str(obj) for obj in state.objects]
+        str_state = f"""Literals: {', '.join(literals)}
+        Objects: {', '.join(objects)}"""
+        return str_state
+    
 def make_pddlgym_model(env_name):
     """Returns the model for the PDDLGym environment with the given name.
     
@@ -207,6 +237,8 @@ def play_env(env_name, max_steps=100, step_time=0.5, mode="random", render=False
     """
     # Initialize environment
     model = make_pddlgym_model(env_name)
+    # Fix problem with PDDLGym environments
+    model.env.fix_problem_index(0)
     obs, _ = model.env.reset()
     # Render
     if render:

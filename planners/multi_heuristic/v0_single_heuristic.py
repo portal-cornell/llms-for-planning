@@ -8,7 +8,10 @@ The V0 single heuristic planner is the simplest planner that we'll use to test t
 of an LLM as an action proposer and state selector.
 """
 from copy import deepcopy
+from io import BytesIO
+import matplotlib.pyplot as plt
 import networkx as nx
+from PIL import Image
 from tqdm import tqdm
 
 def compute_next_states(graph, model, current_state, actions):
@@ -29,7 +32,7 @@ def compute_next_states(graph, model, current_state, actions):
     """
     for action in actions:
         model_copy = deepcopy(model)
-        next_state, _, _, _, _ = model.env.step(action)
+        next_state, _, _, _, _ = model_copy.env.step(action)
         graph.add_node(hash(next_state), state=next_state, model=model_copy)
         graph.add_edge(hash(current_state), hash(next_state), action=action)
 
@@ -56,29 +59,37 @@ def style_goal_nodes(graph, current_state, next_state):
     graph[current_state][next_state]["color"] = "red"
     graph[current_state][next_state]["penwidth"] = "6"
 
-def visualize_graph(graph, graph_file):
-    """Visualizes the graph and saves it to a file.
+def visualize_graph(graph, graph_file="", number_nodes=False):
+    """Visualizes the graph by saving to file or displaying.
     
     Parameters:
         graph (nx.DiGraph)
             The graph to visualize.
         graph_file (str)
-            The name of the file to save the graph to.
+            The name of the file to save the graph to. If empty, the graph is displayed.
+        number_nodes (bool)
+            Whether to number the nodes in the graph.
 
     Side Effects:
         - Creates temporary image files
         - Modifies the graph's labels and images
         - Saves the graph to a file
     """
-    for node in graph.nodes:
-        graph.nodes[node]["label"] = ""
+    for i, node in enumerate(graph.nodes):
+        graph.nodes[node]["fontsize"] = "60"
+        graph.nodes[node]["label"] = str(i) if number_nodes else ""
         model = graph.nodes[node]["model"]
         graph.nodes[node]["image"] = model.get_image_path()
     for edge in graph.edges:
         graph[edge[0]][edge[1]]["label"] = str(graph[edge[0]][edge[1]]["action"])
     pygraphviz_graph = nx.nx_agraph.to_agraph(graph)
     pygraphviz_graph.layout('dot')
-    pygraphviz_graph.draw(graph_file)
+    if graph_file:
+        pygraphviz_graph.draw(graph_file)
+    else:
+        img = Image.open(BytesIO(pygraphviz_graph.draw(format='png')))
+        plt.imshow(img)
+        plt.show()
 
 def plan(plan_policy, model, initial_state, goal, max_steps=20):
     """Follows the V0 single heuristic planning algorithm to output a sequence of actions to the goal.
@@ -103,7 +114,7 @@ def plan(plan_policy, model, initial_state, goal, max_steps=20):
     """
 
     # Generate plan
-    plan = plan_policy.generate_plan()
+    plan = plan_policy.generate_plan(model, initial_state, goal)
 
     # Follow plan to reach goal
     graph = nx.DiGraph()

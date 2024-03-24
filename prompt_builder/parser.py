@@ -96,7 +96,8 @@ def parse_messages(experiment_name, prompt_description, prompt_version):
         prompt_dict = yaml.safe_load(f)
     
     # 2) Parse prompt
-    major, minor, patch = prompt_version.split(".")
+    version = prompt_dict["version"]
+    major, minor, patch = version.split(".")
     if major == "1": # e.g. 1.0.0
         messages = prompt_parser_v1(prompt_dict)
     else:

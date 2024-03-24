@@ -20,14 +20,14 @@ class PlanPolicy:
         """
         raise NotImplementedError # TODO: Figure out parameters with LLM
 
-    def propose_actions(self, graph, env, state, plan):
+    def propose_actions(self, graph, model, state, plan):
         """Proposes an action(s) to take in order to reach the goal.
         
         Parameters:
             graph (nx.DiGraph)
                 The graph to propose actions in.
-            env (gym.Env)
-                The environment to propose actions in.
+            model (Model)
+                The model to propose actions with.
             state (object)
                 The current state of the environment.
             plan (object)
