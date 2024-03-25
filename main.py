@@ -24,13 +24,14 @@ if __name__ == "__main__":
     args = argparser.parse_args()
 
     random.seed(args.seed)
+    # TODO(chalo2000): Put this in an experiment YAML
     # Objects: ["apple", "banana", "cherries", "chocolate_sauce", "ketchup", "lettuce", "almond_milk", "oat_milk", "whole_milk", "mustard", "onion", "orange", "pear", "potato", "salad_dressing", "tomato"]
-    # Locations: ["top shelf", "middle shelf", "bottom shelf"]
+    # Locations: ["top shelf", "left of top shelf", "right of top shelf", "middle shelf", "left of middle shelf", "right of middle shelf", "bottom shelf", "left of bottom shelf", "right of bottom shelf"]
     # Preference: ...
     user_prompt = """
     Objects: ["apple", "banana", "cherries", "chocolate_sauce", "ketchup", "oat_milk", "whole_milk", "mustard", "potato", "salad_dressing", "tomato"]
-    Locations: ["top shelf", "middle shelf", "bottom shelf"]
-    Preference: "Keep milk and chocolate together and then vegetables and condiments together"
+    Locations: ["top shelf", "left of top shelf", "right of top shelf", "middle shelf", "left of middle shelf", "right of middle shelf", "bottom shelf", "left of bottom shelf", "right of bottom shelf"]
+    Preference: "Fruit on the left and vegetables on the right. I like my milk on the upper right and my condiments on the middle shelf."
     """
     text_plan = prompt_llm(
         user_prompt,

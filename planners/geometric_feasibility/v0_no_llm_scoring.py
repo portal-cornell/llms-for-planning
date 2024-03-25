@@ -15,10 +15,11 @@ import heapq
 import numpy as np
 import random
 
-import planners.geometric_feasibility.sim2d_utils as sim2d_utils
+# import sim2d_utils # TODO: Move to model so run_planner.py can be run
+from . import sim2d_utils
 
 PERCEPTION_CONSTANTS = {
-    "shelf_heights": sim2d_utils.get_shelf_heights(),
+    "location_bboxs": sim2d_utils.get_location_bboxs(),
     "objects": {
         "apple": {
             "width": 0.1,
@@ -128,13 +129,13 @@ def generate_random_plan():
     """
     obj_num = len(PERCEPTION_CONSTANTS["objects"])
     random_objects = random.sample(list(PERCEPTION_CONSTANTS["objects"].keys()), k=obj_num)
-    random_locations = random.choices(list(PERCEPTION_CONSTANTS["shelf_heights"].keys()), k=obj_num)
+    random_locations = random.choices(list(PERCEPTION_CONSTANTS["location_bboxs"].keys()), k=obj_num)
     high_level_plan = []
     for i, (obj_name, loc_name) in enumerate(zip(random_objects, random_locations)):
-        print(f"{i+1}) Place {obj_name} on the {loc_name} shelf.")
+        print(f"{i+1}) Place {obj_name} on the {loc_name}.")
         object_dict = PERCEPTION_CONSTANTS["objects"][obj_name]
         object_bbox = (-1, -1, object_dict["width"], object_dict["height"])
-        location_bbox = (0, PERCEPTION_CONSTANTS["shelf_heights"][loc_name], 1, 0.33)
+        location_bbox = PERCEPTION_CONSTANTS["location_bboxs"][loc_name]
         skill = ("pickandplace", (obj_name, object_bbox, location_bbox))
         high_level_plan.append(skill)
     return high_level_plan
@@ -162,7 +163,7 @@ def parse_language_skill(language_skill):
     loc_name = loc_name.strip('"')
     object_dict = PERCEPTION_CONSTANTS["objects"][obj_name]
     object_bbox = (-1, -1, object_dict["width"], object_dict["height"])
-    location_bbox = (0, PERCEPTION_CONSTANTS["shelf_heights"][loc_name], 1, 0.33)
+    location_bbox = PERCEPTION_CONSTANTS["location_bboxs"][loc_name]
     return ("pickandplace", (obj_name, object_bbox, location_bbox))
 
 def generate_plan(text_plan):
@@ -184,7 +185,6 @@ def generate_plan(text_plan):
             high_level_plan.append(skill)
         except:
             print(f"Failed to parse language skill: {language_skill}")
-    print(high_level_plan)
     return high_level_plan
 
 def average_packing_space_left(env, sample, sample_locs):
@@ -232,6 +232,8 @@ def score_sample(env, sample, sample_locs):
     score = 1
     # Average packing space left score
     score += average_packing_space_left(env, sample, sample_locs)
+    # Number of objects in fridge
+    score += env.n_shapes
     return score
 
 def plan(env, num_plans, beam_size, num_samples, text_plans=[]):
@@ -275,6 +277,7 @@ def plan(env, num_plans, beam_size, num_samples, text_plans=[]):
     for high_level_plan in high_level_plans:
         # Maintain best candidates (score, action_sequence) on beam of size B
         beam = [(0, ())] * beam_size
+        
         for skill in high_level_plan:
             skill_name, params = skill
             assert skill_name == "pickandplace"
@@ -284,6 +287,7 @@ def plan(env, num_plans, beam_size, num_samples, text_plans=[]):
             o_img_path = PERCEPTION_CONSTANTS["objects"][object_name].get("image_path")
             l_x1, l_y1, l_w, _ = location_bbox
             candidates = []
+            # candidates.extend(beam)
             for score, action_sequence in beam:
                 # Simulate the current action sequence
                 beam_env = deepcopy(env)
@@ -307,19 +311,3 @@ def plan(env, num_plans, beam_size, num_samples, text_plans=[]):
     score, best_action_sequence = max(best_action_sequences)
                 
     return best_action_sequence
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="V0 geometric feasibility planner")
-    parser.add_argument("--seed", type=int, default=0, help="Random seed")
-    parser.add_argument("--num_plans", type=int, default=10, help="Number of plans to generate")
-    parser.add_argument("--beam_size", type=int, default=10, help="Size of the beam to maintain")
-    parser.add_argument("--num_samples", type=int, default=10, help="Number of samples to take for each object placement")
-    parser.add_argument("--gif_path", type=str, default=None, help="Path to save the GIF to; doesn't save if None")
-    args = parser.parse_args()
-
-    random.seed(args.seed)
-    env = sim2d_utils.make_sim2d_env(render_mode="rgb_array")
-    best_action_sequence = plan(env, args.num_plans, args.beam_size, args.num_samples)
-    # print(best_action_sequence)
-    if args.gif_path:
-        sim2d_utils.save_replay(env, best_action_sequence, args.gif_path)
