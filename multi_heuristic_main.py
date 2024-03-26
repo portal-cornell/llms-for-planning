@@ -46,7 +46,7 @@ if __name__ == "__main__":
         "cheap_llm": cheap_llm,
         "prompt_fn": prompt_llm,
         "ground_truth_plan": True,
-        "ground_truth_action": True,
+        "ground_truth_action": False,
         "ground_truth_state_selection": True,
         "state_translation_prompt": {
             "experiment_name": "state_translation_blocksworld",

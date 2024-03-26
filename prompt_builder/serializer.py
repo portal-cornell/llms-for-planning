@@ -1,10 +1,8 @@
 """
-This module validates and parses the YAML prompt file into messages for an LLM to be prompted with.
+This module validates and serializes the YAML prompt file into messages for an LLM to be prompted with.
 """
 import argparse
 import yaml
-
-import utils
 
 def prompt_validator_v1(prompt_dict):
     """Validates the prompt YAML.
@@ -68,8 +66,8 @@ def prompt_parser_v1(prompt_dict):
             messages.append(message)
     return messages
 
-def parse_messages(experiment_name, prompt_description, prompt_version):
-    """Parses the messages associated with the provided prompt.
+def parse_messages(prompt_path):
+    """Parses the messages associated with the provided prompt path.
 
     Parameters:
         experiment_name (str)
@@ -91,7 +89,6 @@ def parse_messages(experiment_name, prompt_description, prompt_version):
             - If the data tag is not implemented.
     """
     # 1) Get prompt dict
-    prompt_path = utils.get_prompt_path(experiment_name, prompt_description, prompt_version)
     with open(prompt_path, "r") as f:
         prompt_dict = yaml.safe_load(f)
     
@@ -105,12 +102,12 @@ def parse_messages(experiment_name, prompt_description, prompt_version):
     
     return messages
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--experiment_name", required=True, help="The name of the experiment for the prompt.")
-    parser.add_argument("--prompt_description", required=True, help="The description of the prompt to test.")
-    parser.add_argument("--prompt_version", required=True, help="The version of the prompt to test.")
-    args = parser.parse_args()
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument("--experiment_name", required=True, help="The name of the experiment for the prompt.")
+#     parser.add_argument("--prompt_description", required=True, help="The description of the prompt to test.")
+#     parser.add_argument("--prompt_version", required=True, help="The version of the prompt to test.")
+#     args = parser.parse_args()
 
-    messages = parse_messages(args.experiment_name, args.prompt_description, args.prompt_version)
-    print(messages)
+#     messages = parse_messages(args.experiment_name, args.prompt_description, args.prompt_version)
+#     print(messages)

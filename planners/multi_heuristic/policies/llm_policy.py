@@ -23,9 +23,21 @@ class LLMPolicy(PlanPolicy):
         """
         super().__init__(kwargs)
         self.prompt_fn = kwargs["prompt_fn"]
+        
+        # State translation
+        self.state_translation_prompt_params = kwargs.get("state_translation_prompt", {})
+
+        # Plan generation
         self.ground_truth_plan = kwargs.get("ground_truth_plan", False)
+        self.plan_generation_prompt_params = kwargs.get("plan_generation_prompt", {})
+
+        # Action proposal
         self.ground_truth_action = kwargs.get("ground_truth_action", False)
+        self.action_proposal_prompt_params = kwargs.get("action_proposal_prompt", {})
+
+        # State selection
         self.ground_truth_state_selection = kwargs.get("ground_truth_state_selection", False)
+        self.state_selection_prompt_params = kwargs.get("state_selection_prompt", {})
     
     def generate_plan(self, model, initial_state, goal):
         """Generates a plan to reach the goal.
@@ -132,8 +144,31 @@ class LLMPolicy(PlanPolicy):
         """
         if self.ground_truth_action:
             # TODO: Calculate ground truth with Dijkstra's algorithm
+            print("ground truth")
             return self._interactive_propose_actions(graph, model, state, plan)
-        raise NotImplementedError # TODO: Add LLM action proposal
+        
+        # Get initial node state description
+        root_node = list(graph.nodes)[0]
+        initial_state = graph.nodes[root_node]["state"]
+        initial_state_str = model.state_to_str(initial_state)
+        initial_state_description = self.prompt_fn(initial_state_str, **self.state_translation_prompt_params)
+        
+        # Get current node state description
+        state_str = model.state_to_str(state)
+        state_description = self.prompt_fn(state_str, **self.state_translation_prompt_params)
+
+        # Get action from action proposal response
+        action_proposal_prompt =  f"Initial state:\n{initial_state_description}\n"
+        action_proposal_prompt += f"Plan:\n{plan}\n"
+        action_proposal_prompt += f"Current state:\n{state_description}"
+        print(action_proposal_prompt)
+        action_proposal_response = self.prompt_fn(action_proposal_prompt, **self.action_proposal_prompt_params)
+        print(action_proposal_response)
+        action = action_proposal_response.split("Action:")[1].strip()
+        # Filter valid actions and cast to string until finding the action
+        matching_action = list(filter(lambda x: str(x) == action, model.get_valid_actions(state)))
+        print(matching_action)
+        return matching_action #self._interactive_propose_actions(graph, model, state, plan) #raise NotImplementedError # TODO: Add LLM action proposal
     
     def _interactive_select_state(self, graph, plan, goal):
         """Selects the next state to propose actions from interactively.

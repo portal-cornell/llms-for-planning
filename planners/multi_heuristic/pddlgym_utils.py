@@ -148,7 +148,7 @@ class PDDLGymModel(Model):
         """
         literals = [str(literal) for literal in state.literals]
         objects = [str(obj) for obj in state.objects]
-        str_state = f"""Literals: {', '.join(literals)}
+        str_state = f"""Predicates: {', '.join(literals)}
         Objects: {', '.join(objects)}"""
         return str_state
     
