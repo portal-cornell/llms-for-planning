@@ -14,6 +14,7 @@ if __name__ == "__main__":
     argparser.add_argument("--max_steps", type=int, default=20, help="The maximum number of steps to take to reach the goal.")
     argparser.add_argument("--seed", type=int, default=42, help="The random seed to use.")
     argparser.add_argument("--graph_file", required=False, help="The name of the file to save the graph to.")
+    argparser.add_argument("--log_file", required=False, help="The name of the file to save the log to.")
     argparser.add_argument("--cheap", action="store_true", help="Whether to use the cheap version of the plan policy.")
     argparser.add_argument("--num_actions", type=int, default=1, help="The number of actions to propose.")
     args = argparser.parse_args()
@@ -25,21 +26,6 @@ if __name__ == "__main__":
     temperature = 0.7
     max_attempts = 10
     sleep_time = 5
-
-    # user_prompt = ""
-    # text_plan = prompt_llm(
-    #     user_prompt,
-    #     args.experiment_name,
-    #     args.prompt_description,
-    #     args.prompt_version,
-    #     args.model,
-    #     args.temperature,
-    #     max_attempts=args.max_attempts,
-    #     sleep_time=args.sleep_time,
-    #     debug=args.debug
-    # )
-    # print(f"LLM response:\n{text_plan}")
-
     kwargs = {
         "cheap": args.cheap,
         "expensive_llm": expensive_llm,
@@ -69,7 +55,8 @@ if __name__ == "__main__":
             "sleep_time": sleep_time
         },
         "temperature": temperature,
-        "num_actions": args.num_actions
+        "num_actions": args.num_actions,
+        "log_file": args.log_file
     }
     plan_policy = NAME_TO_POLICY[args.plan_policy](kwargs) # TODO: Move kwargs to config file
     env_name = f"PDDLEnv{args.env_name.capitalize()}-v0"

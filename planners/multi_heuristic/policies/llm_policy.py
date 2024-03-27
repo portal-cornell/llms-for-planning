@@ -2,10 +2,8 @@ from io import BytesIO
 import matplotlib.pyplot as plt
 import networkx as nx
 from PIL import Image
-import random
 
 from .policy import PlanPolicy
-from . import utils
 
 class LLMPolicy(PlanPolicy):
     """A plan policy that queries an LLM to propose actions and select next states."""
@@ -23,6 +21,7 @@ class LLMPolicy(PlanPolicy):
         """
         super().__init__(kwargs)
         self.prompt_fn = kwargs["prompt_fn"]
+        self.log_file = kwargs.get("log_file", None)
         
         # State translation
         self.state_translation_prompt_params = kwargs.get("state_translation_prompt", {})
@@ -38,6 +37,18 @@ class LLMPolicy(PlanPolicy):
         # State selection
         self.ground_truth_state_selection = kwargs.get("ground_truth_state_selection", False)
         self.state_selection_prompt_params = kwargs.get("state_selection_prompt", {})
+    
+    def _write_to_log(self, log_file, data):
+        """Writes data to a log file.
+        
+        Parameters:
+            log_file (str)
+                The name of the log file to write to.
+            data (str)
+                The data to write to the log file.
+        """
+        with open(log_file, "a") as f:
+            f.write(data)
     
     def generate_plan(self, model, initial_state, goal):
         """Generates a plan to reach the goal.
@@ -58,8 +69,12 @@ class LLMPolicy(PlanPolicy):
             print("Generate a plan:")
             print(model.state_to_str(initial_state))
             print(f"Goal: {goal}")
-            return input() # TODO: Add ground truth per environment
-        return None # TODO: Add LLM plan generation
+            plan = input().replace("\\n", "\n")
+            if self.log_file:
+                log = f"Plan Generation (GT)\n{'-'*20}\nPlan:\n{plan}\n\n"
+                self._write_to_log(self.log_file, log)
+            return plan
+        return None # TODO(chalo2000): Add LLM plan generation
     
     def _interactive_graph_visualize(self, graph, state=None):
         """Displays a numbered graph to assist with interactions.
@@ -143,8 +158,7 @@ class LLMPolicy(PlanPolicy):
                 This function should be implemented in a subclass.
         """
         if self.ground_truth_action:
-            # TODO: Calculate ground truth with Dijkstra's algorithm
-            print("ground truth")
+            # TODO(chalo2000): Calculate ground truth with Dijkstra's algorithm
             return self._interactive_propose_actions(graph, model, state, plan)
         
         # Get initial node state description
@@ -168,7 +182,10 @@ class LLMPolicy(PlanPolicy):
         # Filter valid actions and cast to string until finding the action
         matching_action = list(filter(lambda x: str(x) == action, model.get_valid_actions(state)))
         print(matching_action)
-        return matching_action #self._interactive_propose_actions(graph, model, state, plan) #raise NotImplementedError # TODO: Add LLM action proposal
+        if self.log_file:
+                log = f"Action Proposal\n{'-'*20}\n{action_proposal_prompt}\n{action_proposal_response}\n\n"
+                self._write_to_log(self.log_file, log)
+        return matching_action
     
     def _interactive_select_state(self, graph, plan, goal):
         """Selects the next state to propose actions from interactively.
@@ -193,6 +210,9 @@ class LLMPolicy(PlanPolicy):
             input_state = input("Enter state idx: ")
         selected_node = list(graph.nodes)[int(input_state)]
         selected_state = graph.nodes[selected_node]["state"]
+        if self.log_file:
+                log = f"State Selection (GT)\n{'-'*20}\nState Index: {input_state}\n\n"
+                self._write_to_log(self.log_file, log)
         return selected_state
 
     def select_state(self, graph, plan, goal):
@@ -216,6 +236,6 @@ class LLMPolicy(PlanPolicy):
                 since the goal should be reached before this point.
         """
         if self.ground_truth_state_selection:
-            # TODO: Calculate ground truth with Dijkstra's algorithm
+            # TODO(chalo2000): Calculate ground truth with Dijkstra's algorithm
             return self._interactive_select_state(graph, plan, goal)
-        raise NotImplementedError # TODO: Add LLM state selection
+        raise NotImplementedError # TODO(chalo2000): Add LLM state selection
