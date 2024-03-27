@@ -4,7 +4,7 @@ This script version controls a prompt by producing a prompt YAML under `prompts`
 Refer to `prompt_builder/docs` to understand the appropriate structure of the prompt YAML.
 
 To run this script, make sure `sandbox` contains the updated prompt and run the following command in the terminal:
-    python builder.py
+    python builder_script.py
 """
 import os
 import sys

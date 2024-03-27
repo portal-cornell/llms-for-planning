@@ -1,3 +1,6 @@
+"""
+This module contains utilities for constructing file names and retrieving file paths for prompts.
+"""
 import os
 
 def get_prompt_file_name(prompt_version, prompt_description):

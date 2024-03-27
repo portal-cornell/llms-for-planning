@@ -1,10 +1,33 @@
 import argparse
 import random
 
+from prompt_builder.constants import PROMPT_HISTORY_PATH
 from prompt_builder.prompt_llm import prompt_llm
+import prompt_builder.serializer as prompt_serializer
+import prompt_builder.utils as prompt_utils
+
 from planners.multi_heuristic.v0_single_heuristic import plan, visualize_graph
 import planners.multi_heuristic.pddlgym_utils as pddlgym_utils
 from planners.multi_heuristic.policies import NAME_TO_POLICY
+
+def fetch_messages(experiment_name, prompt_description, prompt_version):
+    """Fetches the messages for the prompt from the version control directory.
+
+    Parameters:
+        experiment_name (str)
+            The name of the experiment for the prompt.
+        prompt_description (str)
+            The description of the prompt.
+        prompt_version (str)
+            The version of the prompt.
+
+    Returns:
+        messages (List[Dict[str, str]])
+            The messages to query the LLM with.
+    """
+    prompt_path = prompt_utils.get_prompt_path(PROMPT_HISTORY_PATH, experiment_name, prompt_description, prompt_version)
+    messages = prompt_serializer.serialize_into_messages(prompt_path)
+    return messages
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
@@ -35,9 +58,7 @@ if __name__ == "__main__":
         "ground_truth_action": False,
         "ground_truth_state_selection": True,
         "state_translation_prompt": {
-            "experiment_name": "state_translation_blocksworld",
-            "prompt_description": "initial",
-            "prompt_version": "1.0.0",
+            "messages": fetch_messages("state_translation_blocksworld", "initial", "1.0.0"),
             "model": expensive_llm,
             "temperature": temperature,
             "max_attempts": max_attempts,
@@ -45,9 +66,7 @@ if __name__ == "__main__":
             "sleep_time": sleep_time 
         },
         "action_proposal_prompt": {
-            "experiment_name": "action_proposal",
-            "prompt_description": "initial",
-            "prompt_version": "1.0.0",
+            "messages": fetch_messages("action_proposal", "initial", "1.0.0"),
             "model": expensive_llm,
             "temperature": temperature,
             "max_attempts": max_attempts,
