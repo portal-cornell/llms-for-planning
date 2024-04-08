@@ -1,3 +1,7 @@
+"""
+This module contains the RandomPolicy class. It has no notion of generating a plan and instead
+randomly proposes actions and selects next states. This policy does not use an LLM.
+"""
 import random
 
 from .policy import PlanPolicy
@@ -22,8 +26,16 @@ class RandomPolicy(PlanPolicy):
         self.cheap = kwargs.get("cheap", False)
         self.num_actions = kwargs.get("num_actions", 1)
     
-    def generate_plan(self):
+    def generate_plan(self, model, initial_state, goal):
         """Generates a plan to reach the goal.
+        
+        Parameters:
+            model (Model)
+                The model to translate state with.
+            initial_state (object)
+                The initial state of the environment.
+            goal (object)
+                The goal to reach.
         
         Returns:
             None

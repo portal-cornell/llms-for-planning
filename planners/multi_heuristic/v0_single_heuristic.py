@@ -1,12 +1,14 @@
-"""The V0 single heuristic planner uses an LLM to generate a single plan to reach a goal in a given
-environment. Then, starting from an initial state, the plan is used to propose an action(s) to take
-in order to reach the goal. Using a model of the environment, the next states are computed and the
-plan is used to select the next state to propose actions from. This process is repeated until the
-goal is reached.
+"""
+This module contains the V0 single heuristic planner which uses an LLM to generate a single plan 
+to reach a goal in a given environment. Then, starting from an initial state, the plan is used to
+propose an action(s) to take in order to reach the goal. Using a model of the environment, the 
+next states are computed and the plan is used to select the next state to propose actions from. 
+This process is repeated until the goal is reached.
 
 The V0 single heuristic planner is the simplest planner that we'll use to test the effectiveness
 of an LLM as an action proposer and state selector.
 """
+import os
 from copy import deepcopy
 from io import BytesIO
 import matplotlib.pyplot as plt
@@ -85,6 +87,8 @@ def visualize_graph(graph, graph_file="", number_nodes=False):
     pygraphviz_graph = nx.nx_agraph.to_agraph(graph)
     pygraphviz_graph.layout('dot')
     if graph_file:
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(graph_file), exist_ok=True)
         pygraphviz_graph.draw(graph_file)
     else:
         img = Image.open(BytesIO(pygraphviz_graph.draw(format='png')))

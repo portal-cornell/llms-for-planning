@@ -1,3 +1,6 @@
+"""
+This module contains utility functions that can be shared across different policies.
+"""
 from copy import deepcopy
 
 def get_actions_to_propose_cheap(graph, model, state):

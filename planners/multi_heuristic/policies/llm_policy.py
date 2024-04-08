@@ -1,3 +1,12 @@
+"""
+This module contains the LLMPolicy class. The LLM policy plan generation, action proposal,
+and state selection can be set to a ground truth mode which allows the user to interactively
+input this information. This is intended for ablation studies and debugging purposes.
+
+TODO(chalo2000): Allow for interactive mode and actual ground truth mode calculated by optimal
+policy.
+"""
+import os
 from io import BytesIO
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -22,6 +31,8 @@ class LLMPolicy(PlanPolicy):
         super().__init__(kwargs)
         self.prompt_fn = kwargs["prompt_fn"]
         self.log_file = kwargs.get("log_file", None)
+        if self.log_file:
+            os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
         
         # State translation
         self.state_translation_prompt_params = kwargs.get("state_translation_prompt", {})

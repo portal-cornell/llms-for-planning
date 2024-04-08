@@ -1,3 +1,7 @@
+"""
+This module contains utility functions for using PDDLGym environments.
+"""
+import os
 from copy import deepcopy
 import imageio
 import matplotlib.pyplot as plt
@@ -218,7 +222,7 @@ def get_action(model, obs, mode):
         action = valid_actions[int(input_action)]
     return action
 
-def play_env(env_name, max_steps=100, step_time=0.5, mode="random", render=False, save_gif=False):
+def play_env(env_name, max_steps=100, step_time=0.5, fps=4, mode="random", render=False, gif_file=None):
     """Play the environment with the given mode.
     
     Parameters:
@@ -228,12 +232,14 @@ def play_env(env_name, max_steps=100, step_time=0.5, mode="random", render=False
             The maximum number of steps to simulate.
         step_time (float)
             The time to pause between steps.
+        fps (int)
+            The frames per second to save the gif as.
         mode (str)
             The mode to use to select the action. Options include ["random", "interactive"].
         render (bool)
             Whether to render the environment.
-        save_gif (bool)
-            Whether to save the rendered environment as a GIF.
+        gif_file (Optional[str])
+            The name of the file to save the gif to, if any.
     """
     # Initialize environment
     model = make_pddlgym_model(env_name)
@@ -258,5 +264,6 @@ def play_env(env_name, max_steps=100, step_time=0.5, mode="random", render=False
         # Render
         img = render_pddlgym(model, step_time, render=render, close=True)
         imgs.append(img)
-    if save_gif:
-        imageio.mimsave(f"{env_name}.gif", imgs, duration=max_steps)
+    if gif_file:
+        os.makedirs(os.path.dirname(gif_file), exist_ok=True)
+        imageio.mimsave(gif_file, imgs, fps=4)
