@@ -89,7 +89,7 @@ if __name__ == "__main__":
         "num_actions": args.num_actions,
         "log_file": args.log_file
     }
-    plan_policy = NAME_TO_POLICY[args.plan_policy](kwargs) # TODO: Move kwargs to config file
+    plan_policy = NAME_TO_POLICY[args.plan_policy](kwargs) # TODO(chalo2000): Move kwargs to config file
     env_name = f"PDDLEnv{args.env_name.capitalize()}-v0"
     model = pddlgym_utils.make_pddlgym_model(env_name)
     model.env.fix_problem_index(args.problem_index)

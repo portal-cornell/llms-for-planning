@@ -36,7 +36,7 @@ class PlanPolicy:
             NotImplementedError
                 This function should be implemented in a subclass.
         """
-        raise NotImplementedError # TODO: Figure out parameters with LLM
+        raise NotImplementedError
 
     def propose_actions(self, graph, model, state, plan):
         """Proposes an action(s) to take in order to reach the goal.
