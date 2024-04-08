@@ -1,0 +1,38 @@
+version: 1.0.0
+experiment_name: state_translation_blocksworld
+prompt_description: initial
+prompt_version: 1.0.0
+system: |
+  You are an assistant that summarizes PDDL predicates into natural language.
+instructions: |
+  You are given the following to summarize into natural language.
+  - a list of PDDL predicates
+  - a list of objects
+
+  The predicates and objects belong to the Blocksworld domain. The Blocksworld
+  domain involves blocks that can be stacked on top of each other with a
+  single hand that can hold one block at a time.
+  
+  The objects in this domain include
+    - blocks
+
+  The predicates in this domain include
+    - on(block1, block2): block1 is directly on top of block2
+    - ontable(block1): block1 is directly on top of the table
+    - clear(block1): block1 has nothing on top of it
+    - handempty: the hand is empty
+    - handfull: the hand is holding a block
+    - holding(block1): the hand is holding block1
+
+  When describing the state, you should describe each object with respect
+  to other objects in the scene.
+examples:
+- description: Example description
+- observation: |
+    Predicates: on(a, b), ontable(b), ontable(c), clear(a), clear(c), handempty
+    Objects: a:block, b:block, c:block
+- response: |
+    Block a on top of block b and is clear.
+    Block b has block a on top of it and is on the table.
+    Block c is on the table and is clear.
+    The hand is empty.
