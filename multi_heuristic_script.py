@@ -1,3 +1,15 @@
+"""
+This script is used to run the multi-heuristic planner on an environment.
+
+To run this script on an example, run the following command in the terminal:
+    python multi_heuristic_script.py \
+        --plan_policy llm \
+        --env_name blocks_operator_actions \
+        --max_steps 5 \
+        --num_actions 1 \
+        --graph_file planners/multi_heuristic/images/blocks_operator_actions.png \
+        --log_file planners/multi_heuristic/logging/blocks_operator_actions.txt
+"""
 import argparse
 import random
 
