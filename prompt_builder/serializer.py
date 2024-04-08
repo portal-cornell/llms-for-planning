@@ -1,10 +1,7 @@
 """
-This module validates and parses the YAML prompt file into messages for an LLM to be prompted with.
+This module validates and serializes the YAML prompt file into messages for an LLM to be prompted with.
 """
-import argparse
 import yaml
-
-import utils
 
 def prompt_validator_v1(prompt_dict):
     """Validates the prompt YAML.
@@ -34,8 +31,8 @@ def prompt_validator_v1(prompt_dict):
                 response_count += 1
         assert observation_count == response_count, "Prompt YAML examples must have an equal number of observations and responses (paired)."
 
-def prompt_parser_v1(prompt_dict):
-    """Parses the prompt YAML.
+def prompt_serializer_v1(prompt_dict):
+    """Serializes the prompt YAML into messages.
 
     A v1 prompt YAML includes a system message, an instruction message, and a list of examples.
     For more details, see `prompt_validator_v1`.
@@ -68,16 +65,12 @@ def prompt_parser_v1(prompt_dict):
             messages.append(message)
     return messages
 
-def parse_messages(experiment_name, prompt_description, prompt_version):
-    """Parses the messages associated with the provided prompt.
+def serialize_into_messages(prompt_path):
+    """Serializes the prompt at prompt_path into messages to prompt the LLM with.
 
     Parameters:
-        experiment_name (str)
-            The name of the experiment for the prompt.
-        prompt_description (str)
-            The description of the prompt to parse.
-        prompt_version (str)
-            The version of the prompt to parse.
+        prompt_path (str)
+            The path to the prompt YAML.
     
     Returns:
         messages (List[Dict[str, str]])
@@ -91,25 +84,15 @@ def parse_messages(experiment_name, prompt_description, prompt_version):
             - If the data tag is not implemented.
     """
     # 1) Get prompt dict
-    prompt_path = utils.get_prompt_path(experiment_name, prompt_description, prompt_version)
     with open(prompt_path, "r") as f:
         prompt_dict = yaml.safe_load(f)
     
-    # 2) Parse prompt
-    major, minor, patch = prompt_version.split(".")
+    # 2) Serialize prompt
+    version = prompt_dict["version"]
+    major, minor, patch = version.split(".")
     if major == "1": # e.g. 1.0.0
-        messages = prompt_parser_v1(prompt_dict)
+        messages = prompt_serializer_v1(prompt_dict)
     else:
         raise NotImplementedError("Prompt parsing version not supported.")
     
     return messages
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--experiment_name", required=True, help="The name of the experiment for the prompt.")
-    parser.add_argument("--prompt_description", required=True, help="The description of the prompt to test.")
-    parser.add_argument("--prompt_version", required=True, help="The version of the prompt to test.")
-    args = parser.parse_args()
-
-    messages = parse_messages(args.experiment_name, args.prompt_description, args.prompt_version)
-    print(messages)

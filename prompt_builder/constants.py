@@ -1,3 +1,8 @@
+"""
+This module contains the directory paths for
+1) where prompts are version-controlled
+2) where the editable prompt YAML is located
+"""
 import os
 
 absolute_dir_path = os.path.dirname(os.path.abspath(__file__))

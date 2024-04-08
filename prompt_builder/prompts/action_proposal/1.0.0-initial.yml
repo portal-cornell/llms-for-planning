@@ -1,0 +1,101 @@
+version: 1.0.0
+experiment_name: action_proposal
+prompt_description: initial
+prompt_version: 1.0.0
+system: |
+  You are an assistant that proposes an action given a plan and the current state of the environment.
+instructions: |
+  You must propose an action given a plan and the current state of the environment.
+  
+  The Blocksworld environment consists of blocks and a table. Blocks can either be on top 
+  of other blocks or the table. There are 4 actions that can be performed in this environment:
+  picking up or putting down a block, and stacking or unstacking two blocks. Blocks can be picked
+  up from the table or put down on the block. Blocks can be stacked on top of other blocks or
+  unstacked from other blocks.
+
+  The actions are represented as strings in the following way:
+  - pick-up(a:block): pick up block a from the table
+  - put-down(a:block): put down block a on the table
+  - stack(a:block,b:block): stack block a on top of block b
+  - unstack(a:block,b:block): unstack block a from block b
+examples:
+- description: Beginning of plan
+- observation: |
+    Initial state: 
+    Block a is on the table.
+    Block b is on the table.
+    Block c is on the table.
+    Plan:
+    1) Pick up block b from the table
+    2) Stack block b on top of block c
+    3) Pick up block a from the table
+    4) Stack block a on top of block b
+    Current state:
+    Block a is on the table.
+    Block b is on the table.
+    Block c is on the table.
+- response: |
+    Reasoning: The plan requires picking up block b from the table to stack it on top of block c. The
+    current state of the environment is that block b is on the table. Therefore, the action to propose
+    is to pick up block b from the table.
+    Action: pick-up(b:block)
+- description: Middle of plan
+- observation: |
+    Initial state:
+    Block a is on the table.
+    Block b is on the table.
+    Block c is on the table.
+    Plan:
+    1) Pick up block b from the table
+    2) Stack block b on top of block c
+    3) Pick up block a from the table
+    4) Stack block a on top of block b
+    Current state: 
+    Block a is on the table.
+    Block b is in hand.
+    Block c is on the table.
+- response: |
+    Reasoning: The plan requires stacking block b on top of block c. The current state of the environment
+    is that block b is in hand. Therefore, the action to propose is to stack block b on top of block c.
+    Action: stack(b:block,c:block)
+- description: End of plan
+- observation: |
+    Initial state:
+    Block a is on the table.
+    Block b is on the table.
+    Block c is on the table.
+    Plan:
+    1) Pick up block b from the table
+    2) Stack block b on top of block c
+    3) Pick up block a from the table
+    4) Stack block a on top of block b
+    Current state:
+    Block a is on the table.
+    Block b is on block c.
+    Block c is on the table.
+- response: |
+    Reasoning: The plan requires picking up block b from the table to stack it on top of block c. This
+    has already been done. Then, the plan requires picking up block a from the table to stack it on top
+    of block b. The current state of the environment is that block a is on the table. Therefore, the action
+    to propose is to pick up block a from the table.
+    Action: pick-up(a:block)
+- description: Not exactly on the plan
+- observation: |
+    Initial state:
+    Block a is on the table.
+    Block b is on the table.
+    Block c is on the table.
+    Plan:
+    1) Pick up block b from the table
+    2) Stack block b on top of block c
+    3) Pick up block a from the table
+    4) Stack block a on top of block b
+    Current state:
+    Block a is on block b.
+    Block b is on the table.
+    Block c is on the table.
+- response: |
+    Reasoning: The plan requires picking up block b from the table to stack it on top of block c. The
+    current state of the environment is that block a is on block b. Therefore, the action to propose
+    is to unstack block a from block b.
+    Action: unstack(a:block,b:block)
