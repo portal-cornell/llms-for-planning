@@ -3,7 +3,7 @@ import imageio
 import gym
 import random
 
-# from grocery_perception import planning_sims # TODO: Move to model so run_planner.py can be run
+# from grocery_perception import planning_sims # TODO(chalo2000): Improve simulator setup.py hierarchy
 from .grocery_perception import planning_sims
 
 def make_sim2d_env(render_mode="human"):
@@ -72,7 +72,8 @@ def get_action(env, mode):
         collision = True
         while collision:
             x = random.uniform(0, 1)
-            y = random.choice(list(get_shelf_heights().values()))
+            ys = [bbox[1] for bbox in get_location_bboxs().values()]
+            y = random.choice(ys)
             w = random.uniform(0.1, 0.3)
             h = random.uniform(0.1, 0.3)
             action = (x, y, w, h)
@@ -96,7 +97,7 @@ def get_action(env, mode):
         action = input_action
     return action
 
-def play_env(max_steps=100, mode="random", render_mode="human", gif_path=None):
+def play_env(max_steps=100, mode="random", render_mode="human", fps=4, gif_path=None):
     """Play the Sim2D environment with the given mode.
     
     Parameters:
@@ -106,6 +107,8 @@ def play_env(max_steps=100, mode="random", render_mode="human", gif_path=None):
             The mode to use to select the action. Options include ["random", "interactive"].
         render_mode (str)
             The mode to use to render the environment. Options include ["human", "rgb_array"].
+        fps (int)
+            The frames per second to render the GIF at.
         gif_path (str)
             The path to save the GIF to; doesn't save if None. Requires render_mode="rgb_array".
     """
@@ -129,9 +132,9 @@ def play_env(max_steps=100, mode="random", render_mode="human", gif_path=None):
         imgs.append(img)
         print(info)
     if gif_path is not None:
-        imageio.mimsave(gif_path, imgs, duration=max_steps)
+        imageio.mimsave(gif_path, imgs, fps=fps)
 
-def save_replay(env, actions, gif_path):
+def save_replay(env, actions, gif_path, fps=4):
     """Saves a replay of the environment with the given actions to the given GIF path.
     
     Parameters:
@@ -141,6 +144,8 @@ def save_replay(env, actions, gif_path):
             The list of actions to take in the environment.
         gif_path (str)
             The path to save the GIF to.
+        fps (int)
+            The frames per second to render the GIF at.
     """
     # Initialize environment
     env = deepcopy(env)
@@ -154,4 +159,4 @@ def save_replay(env, actions, gif_path):
         # Render
         img = env.render()
         imgs.append(img)
-    imageio.mimsave(gif_path, imgs, duration=len(actions))
+    imageio.mimsave(gif_path, imgs, fps=fps)

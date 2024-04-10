@@ -1,7 +1,8 @@
-"""The V0 geometric feasibility planner uses an LLM to generate various plans for placing
-objects in a fridge to satisfy a set of preferences. To gauge the geometric feasibility of
-each plan, each plan is simulated in a fridge environment by sampling positions for each
-object placement and scoring the outcome of each plan.
+"""
+This module contains the V0 geometric feasibility planner which uses an LLM to generate 
+various plans for placing objects in a fridge to satisfy a set of preferences. To gauge 
+the geometric feasibility of each plan, each plan is simulated in a fridge environment
+by sampling positions for each object placement and scoring the outcome of each plan.
 
 V0 aims to be quick by minimizing LLM usage when possible. Particularly, the LLM is only
 queried to generate N plans and to convert placements such as "top shelf" into regions
@@ -9,15 +10,17 @@ to sample from. Scoring consists solely of computable heuristics like collision 
 and average packing space left. Other heuristics involving LLM queries like lookahead
 potential may improve plan quality but are left to future versions to keep V0 fast.
 """
-import argparse
+import os
+
 from copy import deepcopy
 import heapq
 import numpy as np
 import random
 
-# import sim2d_utils # TODO: Move to model so run_planner.py can be run
+# import sim2d_utils # TODO(chalo2000): Move to model so run_planner.py can be run
 from . import sim2d_utils
 
+FILE_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 PERCEPTION_CONSTANTS = {
     "location_bboxs": sim2d_utils.get_location_bboxs(),
     "objects": {
@@ -25,97 +28,97 @@ PERCEPTION_CONSTANTS = {
             "width": 0.1,
             "height": 0.1,
             "color": (242, 58, 77),
-            "image_path": "./planners/geometric_feasibility/assets/apple_crop.png"
+            "image_path": f"{FILE_DIR_PATH}/assets/apple_crop.png"
         },
         "banana": {
             "width": 0.2,
             "height": 0.2,
             "color": (240, 235, 110),
-            "image_path": "./planners/geometric_feasibility/assets/banana_crop.png"
+            "image_path": f"{FILE_DIR_PATH}/assets/banana_crop.png"
         },
         "cherries": {
             "width": 0.1,
             "height": 0.1,
             "color": (0, 0, 0),
-            "image_path": "./planners/geometric_feasibility/assets/cherries_crop.png"
+            "image_path": f"{FILE_DIR_PATH}/assets/cherries_crop.png"
         },
         "chocolate_sauce": {
             "width": 0.125,
             "height": 0.25,
             "color": (0, 0, 0),
-            "image_path": "./planners/geometric_feasibility/assets/chocolate_sauce_crop.png"
+            "image_path": f"{FILE_DIR_PATH}/assets/chocolate_sauce_crop.png"
         },
         "ketchup": {
             "width": 0.125,
             "height": 0.25,
             "color": (0, 0, 0),
-            "image_path": "./planners/geometric_feasibility/assets/ketchup_crop.png"
+            "image_path": f"{FILE_DIR_PATH}/assets/ketchup_crop.png"
         },
         "lettuce": {
             "width": 0.2,
             "height": 0.2,
             "color": (0, 0, 0),
-            "image_path": "./planners/geometric_feasibility/assets/lettuce_crop.png"
+            "image_path": f"{FILE_DIR_PATH}/assets/lettuce_crop.png"
         },
         "almond_milk": {
             "width": 0.15,
             "height": 0.3,
             "color": (0, 0, 0),
-            "image_path": "./planners/geometric_feasibility/assets/milk_almond_crop.png"
+            "image_path": f"{FILE_DIR_PATH}/assets/milk_almond_crop.png"
         },
         "oat_milk": {
             "width": 0.15,
             "height": 0.3,
             "color": (0, 0, 0),
-            "image_path": "./planners/geometric_feasibility/assets/milk_oat_crop.png"
+            "image_path": f"{FILE_DIR_PATH}/assets/milk_oat_crop.png"
         },
         "whole_milk": {
             "width": 0.15,
             "height": 0.3,
             "color": (0, 0, 0),
-            "image_path": "./planners/geometric_feasibility/assets/milk_whole_crop.png"
+            "image_path": f"{FILE_DIR_PATH}/assets/milk_whole_crop.png"
         },
         "mustard": {
             "width": 0.125,
             "height": 0.25,
             "color": (255, 255, 0),
-            "image_path": "./planners/geometric_feasibility/assets/mustard_crop.png"
+            "image_path": f"{FILE_DIR_PATH}/assets/mustard_crop.png"
         },
         "onion": {
             "width": 0.1,
             "height": 0.1,
             "color": (0, 0, 0),
-            "image_path": "./planners/geometric_feasibility/assets/onion_crop.png"
+            "image_path": f"{FILE_DIR_PATH}/assets/onion_crop.png"
         },
         "orange": {
             "width": 0.1,
             "height": 0.1,
             "color": (255, 165, 0),
-            "image_path": "./planners/geometric_feasibility/assets/orange_crop.png"
+            "image_path": f"{FILE_DIR_PATH}/assets/orange_crop.png"
         },
         "pear": {
             "width": 0.1,
             "height": 0.2,
             "color": (0, 0, 0),
-            "image_path": "./planners/geometric_feasibility/assets/pear_crop.png"
+            "image_path": f"{FILE_DIR_PATH}/assets/pear_crop.png"
         },
         "potato": {
             "width": 0.2,
             "height": 0.1,
             "color": (0, 0, 0),
-            "image_path": "./planners/geometric_feasibility/assets/potato_crop.png"
+            "image_path": f"{FILE_DIR_PATH}/assets/potato_crop.png"
         },
         "salad_dressing": {
             "width": 0.15,
             "height": 0.3,
             "color": (0, 0, 0),
-            "image_path": "./planners/geometric_feasibility/assets/salad_dressing_crop.png"
+            "image_path": f"{FILE_DIR_PATH}/assets/salad_dressing_crop.png"
         },
         "tomato": {
             "width": 0.1,
             "height": 0.1,
             "color": (0, 0, 0),
-            "image_path": "./planners/geometric_feasibility/assets/tomato_crop.png"
+            "image_path": f"{FILE_DIR_PATH}/assets/tomato_crop.png"
         }
     }
 }
@@ -143,7 +146,7 @@ def generate_random_plan():
 def parse_language_skill(language_skill):
     """Parses a language skill into an action skill.
     
-    TODO: Be consistent with naming
+    TODO(chalo2000): Be consistent with naming
 
     Parameters:
         text_plan (str)
@@ -198,7 +201,7 @@ def average_packing_space_left(env, sample, sample_locs):
         average_packing_space_left (float)
             The average packing space left in the environment.
     """
-    _, l_y1, _, h, _, _ = sample # TODO: Clean up
+    _, l_y1, _, h, _, _ = sample # TODO(chalo2000): Clean up
     average_width = sum([obj["width"] for obj in PERCEPTION_CONSTANTS["objects"].values()]) 
     average_width /= len(PERCEPTION_CONSTANTS["objects"])
     score = 0
@@ -264,7 +267,7 @@ def plan(env, num_plans, beam_size, num_samples, text_plans=[]):
     """
     # Generate N plans
     high_level_plans = []
-    for i in range(num_plans): # TODO: Parallelize
+    for i in range(num_plans): # TODO(chalo2000): Parallelize
         print(f"Plan {i+1}/{num_plans}")
         if text_plans:
             high_level_plan = generate_plan(text_plans[i]) # Generate correct plan
@@ -287,7 +290,7 @@ def plan(env, num_plans, beam_size, num_samples, text_plans=[]):
             o_img_path = PERCEPTION_CONSTANTS["objects"][object_name].get("image_path")
             l_x1, l_y1, l_w, _ = location_bbox
             candidates = []
-            # candidates.extend(beam)
+            candidates.extend(beam)
             for score, action_sequence in beam:
                 # Simulate the current action sequence
                 beam_env = deepcopy(env)

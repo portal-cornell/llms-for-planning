@@ -1,3 +1,19 @@
+"""
+This script is used to run the geometric feasibility planner on an environment.
+
+To run this script on an example, run the following command in the terminal:
+    python geometric_feasibility_script.py \
+        --experiment_name grocery_bot_plan \
+        --prompt_description initial \
+        --prompt_version 1.0.0 \
+        --model gpt-4 \
+        --temperature 0.7 \
+        --seed 0 \
+        --num_plans 1 \
+        --beam_size 10 \
+        --num_samples 10 \
+        --gif_path ./planners/geometric_feasibility/images/image_plan.gif
+"""
 import argparse
 import random
 
@@ -5,6 +21,7 @@ from prompt_builder.prompt_llm import prompt_llm
 from planners.geometric_feasibility.v0_no_llm_scoring import plan
 import planners.geometric_feasibility.sim2d_utils as sim2d_utils
 
+from utils import fetch_messages
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
@@ -33,11 +50,10 @@ if __name__ == "__main__":
     Locations: ["top shelf", "left of top shelf", "right of top shelf", "middle shelf", "left of middle shelf", "right of middle shelf", "bottom shelf", "left of bottom shelf", "right of bottom shelf"]
     Preference: "Fruit on the left and vegetables on the right. I like my milk on the upper right and my condiments on the middle shelf."
     """
+    messages = fetch_messages(args.experiment_name, args.prompt_description, args.prompt_version)
     text_plan = prompt_llm(
         user_prompt,
-        args.experiment_name,
-        args.prompt_description,
-        args.prompt_version,
+        messages,
         args.model,
         args.temperature,
         max_attempts=args.max_attempts,
