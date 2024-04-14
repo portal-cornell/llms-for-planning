@@ -69,6 +69,19 @@ def populate_messages(cfg):
 
 @hydra.main(version_base="1.2", config_path="conf", config_name="config")
 def run_multi_heuristic_planner(cfg: DictConfig) -> None:
+    """Run the multi-heuristic planner on the given environment.
+    
+    Refer to 'conf/experiments` for Hydra configurations corresponding
+    to this function.
+
+    Parameters:
+        cfg (DictConfig)
+            The configuration for the planner.
+    
+    Side Effects:
+        - The planner prints to the console
+        - The graph of the plan is saved to a file if specified in the configuration
+    """
     populate_messages(cfg)
     kwargs = OmegaConf.to_container(cfg, resolve=True)
     kwargs["prompt_fn"] = prompt_llm # Cannot include functions in config
