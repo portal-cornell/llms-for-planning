@@ -23,6 +23,34 @@ import planners.geometric_feasibility.sim2d_utils as sim2d_utils
 
 from utils import fetch_messages
 
+def generate_sim2d_plan(objs_to_put_away, locations, initial_state_of_fridge, preference, llm_params):
+    """Generates a plan for the sim2d environment.
+    
+    Parameters:
+        objs_to_put_away (List[str]):
+            A list of object names to put away.
+        locations (List[str]):
+            A list of semantic locations where objects can be placed.
+        initial_state_of_fridge (Dict[str, List[str]]):
+            A dictionary mapping from location to a list of object names already in that location.
+        preference (str):
+            A string describing the user's preference for object placement.
+        llm_params (Dict[str, Any]):
+            A dictionary containing the parameters for the LLM model.
+    
+    Returns:
+        text_plan (str):
+            A string describing the plan to put away the objects.
+    """
+    user_prompt = f"""
+    Objects: {objs_to_put_away}
+    Locations: {locations}
+    Initial State: {initial_state_of_fridge}
+    Preference: "{preference}"
+    """
+    text_plan = prompt_llm(user_prompt, **llm_params)
+    return text_plan
+
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--experiment_name", required=True, help="The name of the experiment for the prompt.")
@@ -40,30 +68,71 @@ if __name__ == "__main__":
     argparser.add_argument("--gif_path", type=str, default=None, help="Path to save the GIF to; doesn't save if None")
     args = argparser.parse_args()
 
-    random.seed(args.seed)
-    # TODO(chalo2000): Put this in an experiment YAML
-    # Objects: ["apple", "banana", "cherries", "chocolate_sauce", "ketchup", "lettuce", "almond_milk", "oat_milk", "whole_milk", "mustard", "onion", "orange", "pear", "potato", "salad_dressing", "tomato"]
-    # Locations: ["top shelf", "left of top shelf", "right of top shelf", "middle shelf", "left of middle shelf", "right of middle shelf", "bottom shelf", "left of bottom shelf", "right of bottom shelf"]
-    # Preference: ...
-    user_prompt = """
-    Objects: ["apple", "banana", "cherries", "chocolate_sauce", "ketchup", "oat_milk", "whole_milk", "mustard", "potato", "salad_dressing", "tomato"]
-    Locations: ["top shelf", "left of top shelf", "right of top shelf", "middle shelf", "left of middle shelf", "right of middle shelf", "bottom shelf", "left of bottom shelf", "right of bottom shelf"]
-    Preference: "Fruit on the left and vegetables on the right. I like my milk on the upper right and my condiments on the middle shelf."
+    # Prompt 1.0.1 test 1
     """
+    objs_to_put_away = {
+      "milk": {"width": 0.2, "height": 0.3},
+      "chocolate milk": {"width": 0.25, "height": 0.3},
+      "pineapple": {"width": 0.3, "height": 0.15},
+      "cheddar": {"width": 0.15, "height": 0.1},
+      "orange": {"width": 0.1, "height": 0.1},
+      "pear": {"width": 0.15, "height": 0.2},
+      "watermelon": {"width": 0.5, "height": 0.3},
+    }
+    locations = {
+      "top shelf": {"x": 0, "y": 0.66, "width": 1, "height": 0.34},
+      "middle shelf": {"x": 0, "y": 0.33, "width": 1, "height": 0.33},
+      "bottom shelf": {"x": 0, "y": 0, "width": 1, "height": 0.33}
+    }
+    initial_state_of_fridge = {}
+    preference = "I like putting yellow items on the middle shelf, milk on the top shelf, and fruit on the bottom shelf."
+    """
+
+    # Prompt 1.0.1 test 2
+    """
+    objs_to_put_away = {
+        "apple": {"width": 0.1, "height": 0.1},
+        "banana": {"width": 0.2, "height": 0.2},
+        "cherries": {"width": 0.1, "height": 0.1},
+        "chocolate_sauce": {"width": 0.125, "height": 0.25},
+        "ketchup": {"width": 0.125, "height": 0.25},
+        "oat_milk": {"width": 0.15, "height": 0.3},
+        "whole_milk": {"width": 0.15, "height": 0.3},
+        "mustard": {"width": 0.125, "height": 0.25},
+        "potato": {"width": 0.2, "height": 0.1},
+        "salad_dressing": {"width": 0.15, "height": 0.3},
+        "tomato": {"width": 0.1, "height": 0.1}
+    }
+    locations = {
+      "top shelf": {"x": 0, "y": 0.66, "width": 1, "height": 0.34},
+      "middle shelf": {"x": 0, "y": 0.33, "width": 1, "height": 0.33},
+      "bottom shelf": {"x": 0, "y": 0, "width": 1, "height": 0.33}
+    }
+    initial_state_of_fridge = {}
+    preference = "Fruit on the left and vegetables on the right. I like my milk on the upper right and my condiments on the middle shelf."
+    """
+
+    # TODO(chalo2000): Move to Hydra config
+    objs_to_put_away = ["apple", "banana", "cherries", "chocolate_sauce", "ketchup", "oat_milk", "whole_milk", "mustard", "potato", "salad_dressing", "tomato"]
+    locations = ["top shelf", "left of top shelf", "right of top shelf", "middle shelf", "left of middle shelf", "right of middle shelf", "bottom shelf", "left of bottom shelf", "right of bottom shelf"]
+    initial_state_of_fridge = {}
+    preference = "Fruit on the left and vegetables on the right. I like my milk on the upper right and my condiments on the middle shelf."
+    perception_values = None
     messages = fetch_messages(args.experiment_name, args.prompt_description, args.prompt_version)
-    text_plan = prompt_llm(
-        user_prompt,
-        messages,
-        args.model,
-        args.temperature,
-        max_attempts=args.max_attempts,
-        sleep_time=args.sleep_time,
-        debug=args.debug
-    )
+    llm_params = {
+        "messages": messages,
+        "model": args.model,
+        "temperature": args.temperature,
+        "max_attempts": args.max_attempts,
+        "sleep_time": args.sleep_time,
+        "debug": args.debug
+    }
+    text_plan = generate_sim2d_plan(objs_to_put_away, locations, initial_state_of_fridge, preference, llm_params)
     print(f"LLM response:\n{text_plan}")
 
-    env = sim2d_utils.make_sim2d_env(render_mode="rgb_array")
-    best_action_sequence = plan(env, args.num_plans, args.beam_size, args.num_samples, text_plans=[text_plan])
+    env = sim2d_utils.make_sim2d_env(render_mode="rgb_array") # TODO(chalo2000): Allow setting environment to initial state
+    # TODO(chalo2000): Make planner take in model which contains plan generation and skill extraction
+    best_action_sequence = plan(env, args.num_plans, args.beam_size, args.num_samples, text_plans=[text_plan], perception_values=perception_values)
     if args.gif_path:
         sim2d_utils.save_replay(env, best_action_sequence, args.gif_path)
 

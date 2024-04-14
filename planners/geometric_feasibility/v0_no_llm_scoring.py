@@ -239,7 +239,7 @@ def score_sample(env, sample, sample_locs):
     score += env.n_shapes
     return score
 
-def plan(env, num_plans, beam_size, num_samples, text_plans=[]):
+def plan(env, num_plans, beam_size, num_samples, text_plans=[], perception_values=None):
     """Follows the V0 planning algorithm to output the best sequence of object placements.
 
     The V0 planning algorithm first generates N high-level language plans by few-shot prompting
@@ -264,7 +264,14 @@ def plan(env, num_plans, beam_size, num_samples, text_plans=[]):
             The number of samples (C) to take for each object placement.
         text_plans (list)
             The text plans to convert into skills.
+        perception_values (dict)
+            The perception values to use for the environment.
     """
+    # TODO(chalo2000): Move these environment specific values to a model
+    if perception_values is not None:
+        global PERCEPTION_CONSTANTS
+        PERCEPTION_CONSTANTS = perception_values
+
     # Generate N plans
     high_level_plans = []
     for i in range(num_plans): # TODO(chalo2000): Parallelize

@@ -1,0 +1,71 @@
+version: 1.0.0
+experiment_name: grocery_bot_plan
+prompt_description: fridge-initial-state
+prompt_version: 1.0.2
+system: |
+  You are an assistant that comes up with a plan for putting items into a fridge given a list of items and a human's preference.
+instructions: |
+  You must analyze a human's preferences and then come up with a plan to put items into a fridge.
+  
+  The items will be provided as a list of names. The locations will also be provided as a list of names.
+
+  The initial state of the fridge will be provided as a dictionary whose keys are the locations in the
+  fridge and the values are a list of items currently in that location. If the dictionary is empty,
+  then the fridge is empty.
+
+  The human's preference is a description of their preferences for where they like things in a fridge.
+
+  A plan is a series of skills that you will use to put items into a fridge. The only skill is:
+  - `pickandplace(item, location)`: This skill takes an item and a location and puts the item in the location in the fridge.
+
+  When creating a plan, consider that a fridge
+examples:
+- description: Categorical description
+- observation: |
+    Objects: ["milk", "cheese", "apple", "orange"]
+    Locations: ["top shelf", "middle shelf", "bottom shelf"]
+    Initial State: {}
+    Preference: "I like putting dairy on the top shelf and fruits on the middle shelf."
+- response: |
+    pickandplace("milk", "top shelf")
+    pickandplace("cheese", "top shelf")
+    pickandplace("apple", "middle shelf")
+    pickandplace("orange", "middle shelf")
+- description: Size-based description
+- observation: |
+    Objects: ["milk", "cheese", "apple", "watermelon"]
+    Locations: ["top shelf", "middle shelf", "bottom shelf"]
+    Initial State: {}
+    Preference: "I like putting big items on the bottom shelf and small items on the top shelf."
+- response: |
+    pickandplace("watermelon", "bottom shelf")
+    pickandplace("milk", "top shelf")
+    pickandplace("cheese", "top shelf")
+    pickandplace("apple", "top shelf")
+- description: Fridge shelf filled up
+- observation: |
+    Objects: ["milk", "cheese", "apple", "watermelon"]
+    Locations: ["top shelf", "middle shelf", "bottom shelf"]
+    Initial State: {
+      "top shelf": ["orange juice", "yogurt", "butter", "eggs", "ketchup"]
+    }
+    Preference: "I don't mind where things go."
+- response: |
+    pickandplace("milk", "middle shelf")
+    pickandplace("cheese", "middle shelf")
+    pickandplace("apple", "middle shelf")
+    pickandplace("watermelon", "bottom shelf")
+- description: Fridge shelves with objects of varying size
+- observation: |
+    Objects: ["milk", "cheese", "apple", "melon"]
+    Locations: ["top shelf", "middle shelf", "bottom shelf"]
+    Initial State: {
+      "top shelf": ["yogurt", "butter"],
+      "middle shelf": ["watermelon", "pizza box"]
+    }
+    Preference: "I don't want any of the fridge shelves to be too crowded."
+- response: |
+    pickandplace("milk", "top shelf")
+    pickandplace("cheese", "top shelf")
+    pickandplace("apple", "bottom shelf")
+    pickandplace("melon", "bottom shelf")
