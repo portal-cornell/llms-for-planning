@@ -1,16 +1,14 @@
 """
 This script is used to run the multi-heuristic planner on an environment.
 
+Note this script uses Hydra to manage configurations. To create experiments,
+look at the `conf/experiments` directory.
+
 To run this script on an example, run the following command in the terminal:
-    python multi_heuristic_script.py \
-        --plan_policy llm \
-        --env_name blocks_operator_actions \
-        --max_steps 5 \
-        --num_actions 1 \
-        --graph_file planners/multi_heuristic/images/blocks_operator_actions.png \
-        --log_file planners/multi_heuristic/logging/blocks_operator_actions.txt
+    python multi_heuristic_script.py +experiments=llm_planner
 """
-import argparse
+from omegaconf import DictConfig, OmegaConf
+import hydra
 import random
 
 from prompt_builder.constants import PROMPT_HISTORY_PATH
@@ -41,62 +39,51 @@ def fetch_messages(experiment_name, prompt_description, prompt_version):
     messages = prompt_serializer.serialize_into_messages(prompt_path)
     return messages
 
-if __name__ == "__main__":
-    argparser = argparse.ArgumentParser()
-    argparser.add_argument("--plan_policy", required=True, choices=NAME_TO_POLICY.keys(), help="The plan policy to use.")
-    argparser.add_argument("--env_name", required=True, help="The name of the environment.")
-    argparser.add_argument("--problem_index", type=int, default=0, help="The index of the problem to solve (PDDLGym).")
-    argparser.add_argument("--max_steps", type=int, default=20, help="The maximum number of steps to take to reach the goal.")
-    argparser.add_argument("--seed", type=int, default=42, help="The random seed to use.")
-    argparser.add_argument("--graph_file", required=False, help="The name of the file to save the graph to.")
-    argparser.add_argument("--log_file", required=False, help="The name of the file to save the log to.")
-    argparser.add_argument("--cheap", action="store_true", help="Whether to use the cheap version of the plan policy.")
-    argparser.add_argument("--num_actions", type=int, default=1, help="The number of actions to propose.")
-    args = argparser.parse_args()
+def populate_messages(cfg):
+    """Populate the messages for active prompts from the version control directory.
+    
+    This function finds the planning prompts that aren't using ground truth outputs 
+    and populates their messages from the version control directory. Helper prompts
+    are populated regardless of the ground truth outputs.
 
-    random.seed(args.seed)
-    # TODO(chalo2000): Move all to experiments config file
-    expensive_llm = "gpt-4"
-    cheap_llm = "gpt-3.5-turbo"
-    temperature = 0.7
-    max_attempts = 10
-    sleep_time = 5
-    kwargs = {
-        "cheap": args.cheap,
-        "expensive_llm": expensive_llm,
-        "cheap_llm": cheap_llm,
-        "prompt_fn": prompt_llm,
-        "ground_truth_plan": True,
-        "ground_truth_action": False,
-        "ground_truth_state_selection": True,
-        "state_translation_prompt": {
-            "messages": fetch_messages("state_translation_blocksworld", "initial", "1.0.0"),
-            "model": expensive_llm,
-            "temperature": temperature,
-            "max_attempts": max_attempts,
-            "debug": False,
-            "sleep_time": sleep_time 
-        },
-        "action_proposal_prompt": {
-            "messages": fetch_messages("action_proposal", "initial", "1.0.0"),
-            "model": expensive_llm,
-            "temperature": temperature,
-            "max_attempts": max_attempts,
-            "debug": False,
-            "sleep_time": sleep_time
-        },
-        "temperature": temperature,
-        "num_actions": args.num_actions,
-        "log_file": args.log_file
-    }
-    plan_policy = NAME_TO_POLICY[args.plan_policy](kwargs) # TODO(chalo2000): Move kwargs to config file
-    env_name = f"PDDLEnv{args.env_name.capitalize()}-v0"
-    model = pddlgym_utils.make_pddlgym_model(env_name)
-    model.env.fix_problem_index(args.problem_index)
-    random.seed(args.seed)
+    Parameters:
+        cfg (DictConfig)
+            The configuration for the planner.
+    
+    Side Effects:
+        - The messages for valid prompts are populated in the configuration
+    """
+    prompts_to_populate = []
+    # Planning prompt population
+    if not cfg.llm.ground_truth_plan:
+        prompts_to_populate.append(cfg.llm.plan_generation_prompt)
+    if not cfg.llm.ground_truth_action:
+        prompts_to_populate.append(cfg.llm.action_proposal_prompt)
+    if not cfg.llm.ground_truth_state_selection:
+        prompts_to_populate.append(cfg.llm.state_translation_prompt)
+    # Helper prompt population
+    prompts_to_populate.append(cfg.llm.state_translation_prompt)
+
+    for prompt in prompts_to_populate:
+        prompt.messages = fetch_messages(prompt.experiment_name, prompt.prompt_description, prompt.prompt_version)
+
+@hydra.main(version_base="1.2", config_path="conf", config_name="config")
+def run_multi_heuristic_planner(cfg: DictConfig) -> None:
+    populate_messages(cfg)
+    kwargs = OmegaConf.to_container(cfg, resolve=True)
+    kwargs["prompt_fn"] = prompt_llm # Cannot include functions in config
+
+    # Start planning
+    plan_policy = NAME_TO_POLICY[cfg.planner.plan_policy](kwargs)
+    model = pddlgym_utils.make_pddlgym_model(cfg.planner.env_name)
+    model.env.fix_problem_index(cfg.planner.problem_index)
+    random.seed(cfg.planner.seed)
     initial_state, _ = model.env.reset()
     goal = initial_state.goal
-    action_sequence, graph = plan(plan_policy, model, initial_state, goal, args.max_steps)
+    action_sequence, graph = plan(plan_policy, model, initial_state, goal, cfg.planner.max_steps)
 
-    if args.graph_file is not None:
-        visualize_graph(graph, args.graph_file)
+    if cfg.planner.graph_file is not None:
+        visualize_graph(graph, cfg.planner.graph_file)
+
+if __name__ == "__main__":
+    run_multi_heuristic_planner()

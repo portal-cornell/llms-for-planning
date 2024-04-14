@@ -18,36 +18,37 @@ class LLMPolicy(PlanPolicy):
     """A plan policy that queries an LLM to propose actions and select next states."""
         
     def __init__(self, kwargs):
-        """Initializes the random policy.
+        """Initializes the LLM policy.
         
         Parameters:
             kwargs (dict)
-                The keyword arguments for the policy which include:
-                cheap (bool)
-                    Whether to use the cheap version of the get_actions_to_propose function.
-                num_actions (int)
-                    The number of actions to propose.
+                prompt_fn (function)
+                    The function to use to prompt the LLM.
+                llm (dict)
+                    The Hydra configurations for the LLM policy.
+                planner (dict)
+                    The Hydra configurations for the planner.
         """
         super().__init__(kwargs)
         self.prompt_fn = kwargs["prompt_fn"]
-        self.log_file = kwargs.get("log_file", None)
+        self.log_file = kwargs["planner"].get("log_file", None)
         if self.log_file:
             os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
         
         # State translation
-        self.state_translation_prompt_params = kwargs.get("state_translation_prompt", {})
+        self.state_translation_prompt_params = kwargs["llm"].get("state_translation_prompt", {})
 
         # Plan generation
-        self.ground_truth_plan = kwargs.get("ground_truth_plan", False)
-        self.plan_generation_prompt_params = kwargs.get("plan_generation_prompt", {})
+        self.ground_truth_plan = kwargs["llm"].get("ground_truth_plan", False)
+        self.plan_generation_prompt_params = kwargs["llm"].get("plan_generation_prompt", {})
 
         # Action proposal
-        self.ground_truth_action = kwargs.get("ground_truth_action", False)
-        self.action_proposal_prompt_params = kwargs.get("action_proposal_prompt", {})
+        self.ground_truth_action = kwargs["llm"].get("ground_truth_action", False)
+        self.action_proposal_prompt_params = kwargs["llm"].get("action_proposal_prompt", {})
 
         # State selection
-        self.ground_truth_state_selection = kwargs.get("ground_truth_state_selection", False)
-        self.state_selection_prompt_params = kwargs.get("state_selection_prompt", {})
+        self.ground_truth_state_selection = kwargs["llm"].get("ground_truth_state_selection", False)
+        self.state_selection_prompt_params = kwargs["llm"].get("state_selection_prompt", {})
     
     def _write_to_log(self, log_file, data):
         """Writes data to a log file.
