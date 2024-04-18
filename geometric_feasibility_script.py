@@ -69,47 +69,87 @@ if __name__ == "__main__":
     args = argparser.parse_args()
 
     # Prompt 1.0.1 test 1
+    
+    # objs_to_put_away = {
+    #   "milk": {"width": 0.2, "height": 0.3},
+    #   "chocolate milk": {"width": 0.25, "height": 0.3},
+    #   "pineapple": {"width": 0.3, "height": 0.15},
+    #   "cheddar": {"width": 0.15, "height": 0.1},
+    #   "orange": {"width": 0.1, "height": 0.1},
+    #   "pear": {"width": 0.15, "height": 0.2},
+    #   "watermelon": {"width": 0.5, "height": 0.3},
+    # }
+    # locations = {
+    #   "top shelf": {"x": 0, "y": 0.66, "width": 1, "height": 0.34},
+    #   "middle shelf": {"x": 0, "y": 0.33, "width": 1, "height": 0.33},
+    #   "bottom shelf": {"x": 0, "y": 0, "width": 1, "height": 0.33}
+    # }
+    # initial_state_of_fridge = {}
+    # preference = "I like putting yellow items on the middle shelf, milk on the top shelf, and fruit on the bottom shelf."
+    
     """
-    objs_to_put_away = {
-      "milk": {"width": 0.2, "height": 0.3},
-      "chocolate milk": {"width": 0.25, "height": 0.3},
-      "pineapple": {"width": 0.3, "height": 0.15},
-      "cheddar": {"width": 0.15, "height": 0.1},
-      "orange": {"width": 0.1, "height": 0.1},
-      "pear": {"width": 0.15, "height": 0.2},
-      "watermelon": {"width": 0.5, "height": 0.3},
-    }
-    locations = {
-      "top shelf": {"x": 0, "y": 0.66, "width": 1, "height": 0.34},
-      "middle shelf": {"x": 0, "y": 0.33, "width": 1, "height": 0.33},
-      "bottom shelf": {"x": 0, "y": 0, "width": 1, "height": 0.33}
-    }
-    initial_state_of_fridge = {}
-    preference = "I like putting yellow items on the middle shelf, milk on the top shelf, and fruit on the bottom shelf."
+    pickandplace("milk", {"x": 0.1, "y": 0.66})
+    pickandplace("chocolate milk", {"x": 0.35, "y": 0.66})
+    pickandplace("pineapple", {"x": 0.1, "y": 0.33})
+    pickandplace("cheddar", {"x": 0.7, "y": 0.66})
+    pickandplace("orange", {"x": 0.1, "y": 0})
+    pickandplace("pear", {"x": 0.25, "y": 0})
+    pickandplace("watermelon", {"x": 0.45, "y": 0})
     """
 
     # Prompt 1.0.1 test 2
+    
+    # objs_to_put_away = {
+    #     "apple": {"width": 0.1, "height": 0.1},
+    #     "banana": {"width": 0.2, "height": 0.2},
+    #     "cherries": {"width": 0.1, "height": 0.1},
+    #     "chocolate_sauce": {"width": 0.125, "height": 0.25},
+    #     "ketchup": {"width": 0.125, "height": 0.25},
+    #     "oat_milk": {"width": 0.15, "height": 0.3},
+    #     "whole_milk": {"width": 0.15, "height": 0.3},
+    #     "mustard": {"width": 0.125, "height": 0.25},
+    #     "potato": {"width": 0.2, "height": 0.1},
+    #     "salad_dressing": {"width": 0.15, "height": 0.3},
+    #     "tomato": {"width": 0.1, "height": 0.1}
+    # }
+    # locations = {
+    #   "top shelf": {"x": 0, "y": 0.66, "width": 1, "height": 0.34},
+    #   "middle shelf": {"x": 0, "y": 0.33, "width": 1, "height": 0.33},
+    #   "bottom shelf": {"x": 0, "y": 0, "width": 1, "height": 0.33}
+    # }
+    # initial_state_of_fridge = {}
+    # preference = "Fruit on the left and vegetables on the right. I like my milk on the upper right and my condiments on the middle shelf."
+    
     """
-    objs_to_put_away = {
-        "apple": {"width": 0.1, "height": 0.1},
-        "banana": {"width": 0.2, "height": 0.2},
-        "cherries": {"width": 0.1, "height": 0.1},
-        "chocolate_sauce": {"width": 0.125, "height": 0.25},
-        "ketchup": {"width": 0.125, "height": 0.25},
-        "oat_milk": {"width": 0.15, "height": 0.3},
-        "whole_milk": {"width": 0.15, "height": 0.3},
-        "mustard": {"width": 0.125, "height": 0.25},
-        "potato": {"width": 0.2, "height": 0.1},
-        "salad_dressing": {"width": 0.15, "height": 0.3},
-        "tomato": {"width": 0.1, "height": 0.1}
-    }
-    locations = {
-      "top shelf": {"x": 0, "y": 0.66, "width": 1, "height": 0.34},
-      "middle shelf": {"x": 0, "y": 0.33, "width": 1, "height": 0.33},
-      "bottom shelf": {"x": 0, "y": 0, "width": 1, "height": 0.33}
-    }
-    initial_state_of_fridge = {}
-    preference = "Fruit on the left and vegetables on the right. I like my milk on the upper right and my condiments on the middle shelf."
+    pickandplace("apple", {"x": 0, "y": 0.66})
+    pickandplace("banana", {"x": 0.1, "y": 0.66})
+    pickandplace("cherries", {"x": 0.3, "y": 0.66})
+    pickandplace("potato", {"x": 0.7, "y": 0.66})
+    pickandplace("tomato", {"x": 0.9, "y": 0.66})
+
+    pickandplace("oat_milk", {"x": 0.9, "y": 0.99})
+    pickandplace("whole_milk", {"x": 0.7, "y": 0.99})
+
+    pickandplace("ketchup", {"x": 0.1, "y": 0.33})
+    pickandplace("mustard", {"x": 0.3, "y": 0.33})
+    pickandplace("chocolate_sauce", {"x": 0.5, "y": 0.33})
+    pickandplace("salad_dressing", {"x": 0.7, "y": 0.33})
+    """
+
+    """
+    pickandplace("apple", {"x": 0.1, "y": 0.66})
+    pickandplace("banana", {"x": 0.25, "y": 0.66})
+    pickandplace("cherries", {"x": 0.5, "y": 0.66})
+    pickandplace("potato", {"x": 0.8, "y": 0.66})
+    pickandplace("tomato", {"x": 0.85, "y": 0.66})
+
+    pickandplace("oat_milk", {"x": 0.7, "y": 0.66})
+    pickandplace("whole_milk", {"x": 0.9, "y": 0.66})
+    
+    pickandplace("chocolate_sauce", {"x": 0.1, "y": 0.33})
+    pickandplace("ketchup", {"x": 0.3, "y": 0.33})
+    pickandplace("mustard", {"x": 0.5, "y": 0.33})
+    pickandplace("salad_dressing", {"x": 0.7, "y": 0.33})
     """
 
     # TODO(chalo2000): Move to Hydra config
