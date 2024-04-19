@@ -3,8 +3,7 @@ import imageio
 import gym
 import random
 
-# from grocery_perception import planning_sims # TODO(chalo2000): Improve simulator setup.py hierarchy
-from .grocery_perception import planning_sims
+from grocery_bot_simulator import planning_sims
 
 def make_sim2d_env(render_mode="human"):
     """Returns the Sim2D environment.
