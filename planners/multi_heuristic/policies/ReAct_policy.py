@@ -205,6 +205,7 @@ class ReActPolicy(PlanPolicy):
         # Extract and return ACTION from LLM string response
         regex = r"Action:\s*(.+)"
         action = re.search(regex, thought_and_action).group(1)
+        action = action.replace(" ", "") # Remove spaces
         valid_actions = model.get_valid_actions(state) + [ReActPolicy.FINISH_ACTION]
         matching_action = list(filter(lambda x: str(x) == action, valid_actions))
         return matching_action

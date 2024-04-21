@@ -5,7 +5,13 @@ import os
 import time
 
 import openai
+from openai.types.chat.chat_completion import ChatCompletion
 openai.api_key = os.getenv("OPENAI_API_KEY")
+
+from gpt_cost_estimator import CostEstimator
+
+import logging
+logger = logging.getLogger(__name__)
 
 def get_openai_llms():
     """Returns the available OpenAI LLMs compatible with the Chat API.
@@ -19,7 +25,8 @@ def get_openai_llms():
     openai_llm_names = [model.id for model in openai_models if 'gpt' in model.id]
     return openai_llm_names
 
-def call_openai_chat(messages, model="gpt-3.5-turbo", temperature=0.0, max_attempts=10, sleep_time=5):
+@CostEstimator()
+def call_openai_chat(messages=[], model="gpt-3.5-turbo", temperature=0.0, max_attempts=10, sleep_time=5, **kwargs):
     """Sends chat messages to OpenAI's chat API and returns a response if successful.
 
     This function will raise BadRequestError if the request to the OpenAI API is invalid to handle
@@ -59,7 +66,6 @@ def call_openai_chat(messages, model="gpt-3.5-turbo", temperature=0.0, max_attem
                 messages=messages,
                 temperature=temperature,
             )
-            response = response.choices[0].message.content
         except openai.BadRequestError as e:
             raise e # Reraise the error for the policy to handle
         except openai.OpenAIError as e:
@@ -69,6 +75,23 @@ def call_openai_chat(messages, model="gpt-3.5-turbo", temperature=0.0, max_attem
             time.sleep(sleep_time)
             num_attempts += 1
     return response
+
+def reset_accumulated_cost():
+    """Resets the accumulated cost of the OpenAI API calls.
+    
+    Side Effects:
+        - The accumulated cost of the OpenAI API calls is reset.
+    """
+    CostEstimator.reset()
+
+def get_accumulated_cost():
+    """Returns the accumulated cost of the OpenAI API calls.
+
+    Returns:
+        accumulated_cost (float)
+            The accumulated cost of the OpenAI API calls.
+    """
+    return CostEstimator().get_total_cost()
 
 def prompt_llm(user_prompt, messages, model, temperature, history=[], **kwargs):
     """Prompt an LLM with the given prompt and return the response.
@@ -92,6 +115,10 @@ def prompt_llm(user_prompt, messages, model, temperature, history=[], **kwargs):
                     The number of seconds to sleep after a failed query before requerying
                 debug (bool)
                     Whether or not to mock an LLM response
+                mock (bool)
+                    Whether or not to send a mock respones with gpt_cost_estimator
+                completion_tokens (int)
+                    The number of completion tokens to mock query the LLM with.
 
     Returns:
         response (Optional[dict])
@@ -104,8 +131,6 @@ def prompt_llm(user_prompt, messages, model, temperature, history=[], **kwargs):
             - If the prompt parsing version is not supported.
             - If the data tag is not implemented.
     """
-    max_attempts = kwargs.get('max_attempts', 10)
-    sleep_time = kwargs.get('sleep_time', 5)
     debug = kwargs.get('debug', False)
     if debug:
         response = input("Please input the mocked LLM response: ")
@@ -117,7 +142,23 @@ def prompt_llm(user_prompt, messages, model, temperature, history=[], **kwargs):
                 role = "user" if i % 2 == 0 else "assistant"
                 messages.append({"role": role, "content": message})
         messages.append({"role": "user", "content": user_prompt})
-        response = call_openai_chat(messages, model, temperature, max_attempts, sleep_time)
+        response = call_openai_chat(
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            **kwargs
+        )
+        logger.info(f"LLM Accumulated Cost: ${get_accumulated_cost()}")
+        if isinstance(response, ChatCompletion):
+            prompt_tokens = response.usage.prompt_tokens
+            logger.info(f"Prompt Tokens: {prompt_tokens}")
+            completion_tokens = response.usage.completion_tokens
+            logger.info(f"Completion Tokens: {completion_tokens}")
+            response = response.choices[0].message.content
+        elif isinstance(response, dict):
+            # Mocked response
+            response = response['choices'][0]['message']['content']
+            
     else:
         # TODO(chalo2000): Support open LLM models
         raise NotImplementedError(f"Model {model} is not supported.")
