@@ -155,6 +155,20 @@ class PDDLGymModel(Model):
         str_state = f"""Predicates: {', '.join(literals)}
         Objects: {', '.join(objects)}"""
         return str_state
+
+    def goal_to_str(self, goal):
+        """Returns a string representation of the goal.
+        
+        Parameters:
+            goal (object)
+                The goal to convert to a string.
+        
+        Returns:
+            goal_str (str)
+                The string representation of the goal.
+        """
+        str_literals = [str(literal) for literal in goal.literals]
+        return f"Goal: {', '.join(str_literals)}"
     
 def make_pddlgym_model(env_name):
     """Returns the model for the PDDLGym environment with the given name.

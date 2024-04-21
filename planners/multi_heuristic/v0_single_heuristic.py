@@ -16,28 +16,6 @@ import networkx as nx
 from PIL import Image
 from tqdm import tqdm
 
-def compute_next_states(graph, model, current_state, actions):
-    """Computes the next states to add as nodes in the graph with directed action edges from the current state.
-
-    Parameters:
-        graph (nx.DiGraph)
-            The graph to add the next states to.
-        model (Model)
-            The model containing the environment to simulate the actions in.
-        current_state (object)
-            The current state of the environment.
-        actions (list)
-            The actions to simulate in the environment.
-    
-    Side Effects:
-        Modifies the graph by adding the next states as nodes and the actions as edges.
-    """
-    for action in actions:
-        model_copy = deepcopy(model)
-        next_state, _, _, _, _ = model_copy.env.step(action)
-        graph.add_node(hash(next_state), state=next_state, model=model_copy)
-        graph.add_edge(hash(current_state), hash(next_state), action=action)
-
 def style_goal_nodes(graph, current_state, next_state):
     """Styles the goal nodes and edges in the graph.
     
@@ -126,12 +104,12 @@ def plan(plan_policy, model, initial_state, goal, max_steps=20):
     selected_state = initial_state
     steps = 0
     pbar = tqdm(total=max_steps)
-    while not model.did_reach_goal(selected_state, goal) and steps < max_steps:
+    while not plan_policy.is_done() and steps < max_steps:
         curr_model = graph.nodes[hash(selected_state)]["model"]
         # Propose actions
-        actions = plan_policy.propose_actions(graph, curr_model, selected_state, plan,)
+        actions = plan_policy.propose_actions(graph, curr_model, selected_state, plan)
         # Compute the next states to add as nodes in the graph with directed action edges from the current state
-        compute_next_states(graph, curr_model, selected_state, actions)
+        plan_policy.compute_next_states(graph, curr_model, selected_state, actions)
         # Select next state
         selected_state = plan_policy.select_state(graph, plan, goal)
         steps += 1

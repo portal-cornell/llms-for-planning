@@ -20,6 +20,9 @@ from planners.multi_heuristic.v0_single_heuristic import plan, visualize_graph
 import planners.multi_heuristic.pddlgym_utils as pddlgym_utils
 from planners.multi_heuristic.policies import NAME_TO_POLICY
 
+import logging
+logging.getLogger("httpx").setLevel(logging.WARNING) # Suppress LLM HTTP request logging
+
 def fetch_messages(experiment_name, prompt_description, prompt_version):
     """Fetches the messages for the prompt from the version control directory.
 
@@ -53,19 +56,16 @@ def populate_messages(cfg):
     Side Effects:
         - The messages for valid prompts are populated in the configuration
     """
-    prompts_to_populate = []
-    # Planning prompt population
-    if not cfg.llm.ground_truth_plan:
-        prompts_to_populate.append(cfg.llm.plan_generation_prompt)
-    if not cfg.llm.ground_truth_action:
-        prompts_to_populate.append(cfg.llm.action_proposal_prompt)
-    if not cfg.llm.ground_truth_state_selection:
-        prompts_to_populate.append(cfg.llm.state_translation_prompt)
-    # Helper prompt population
-    prompts_to_populate.append(cfg.llm.state_translation_prompt)
-
-    for prompt in prompts_to_populate:
-        prompt.messages = fetch_messages(prompt.experiment_name, prompt.prompt_description, prompt.prompt_version)
+    llm_cfg = cfg.get("llm")
+    if llm_cfg is None: return
+    for prompt_name in llm_cfg.get("prompts", []):
+        prompt = llm_cfg.prompts[prompt_name]
+        experiment_name = prompt.get("experiment_name", None)
+        prompt_description = prompt.get("prompt_description", None)
+        prompt_version = prompt.get("prompt_version", None)
+        if experiment_name and prompt_description and prompt_version:
+            messages = fetch_messages(experiment_name, prompt_description, prompt_version)
+            llm_cfg.prompts[prompt_name]["messages"] = messages
 
 @hydra.main(version_base="1.2", config_path="conf", config_name="config")
 def run_multi_heuristic_planner(cfg: DictConfig) -> None:

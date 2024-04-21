@@ -3,6 +3,7 @@ This module contains the RandomPolicy class. It has no notion of generating a pl
 randomly proposes actions and selects next states. This policy does not use an LLM.
 """
 import random
+from copy import deepcopy
 
 from .policy import PlanPolicy
 from . import utils
@@ -23,8 +24,21 @@ class RandomPolicy(PlanPolicy):
 
         """
         super().__init__(kwargs)
-        self.cheap = kwargs.get("cheap", False)
-        self.num_actions = kwargs.get("num_actions", 1)
+
+        self.cheap = kwargs['planner'].get("cheap", False)
+        self.num_actions = kwargs['planner'].get("num_actions", 1)
+        self.done = False
+    
+    def is_done(self):
+        """Returns whether the policy is done.
+        
+        The random policy is done when the Gym environment reaches the goal.
+
+        Returns:
+            done (bool)
+                Whether the policy is done.
+        """
+        return self.done
     
     def generate_plan(self, model, initial_state, goal):
         """Generates a plan to reach the goal.
@@ -82,6 +96,28 @@ class RandomPolicy(PlanPolicy):
         actions_to_propose = self._actions_to_propose(graph, model, state)
         return random.sample(actions_to_propose, k=min(self.num_actions, len(actions_to_propose)))
     
+    def compute_next_states(self, graph, model, current_state, actions):
+        """Computes the next states and updates the graph.
+
+        Parameters:
+            graph (nx.DiGraph)
+                The graph to add the next states to.
+            model (Model)
+                The model containing the environment to simulate the actions in.
+            current_state (object)
+                The current state of the environment.
+            actions (list)
+                The actions to simulate in the environment.
+        
+        Side Effects:
+            Modifies the graph by adding the next states as nodes and the actions as edges.
+        """
+        for action in actions:
+            model_copy = deepcopy(model)
+            next_state, _, _, _, _ = model_copy.env.step(action)
+            graph.add_node(hash(next_state), state=next_state, model=model_copy)
+            graph.add_edge(hash(current_state), hash(next_state), action=action)
+    
     def select_state(self, graph, plan, goal):
         """Selects the next state to propose actions from.
         
@@ -109,5 +145,6 @@ class RandomPolicy(PlanPolicy):
             
             if model.did_reach_goal(state, goal) or len(self._actions_to_propose(graph, model, state)) > 0:
                 # A goal state is in the graph or there are still actions left to propose
+                self.done = True
                 return state
         assert False, "No states left to propose actions from."

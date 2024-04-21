@@ -22,6 +22,9 @@ def get_openai_llms():
 def call_openai_chat(messages, model="gpt-3.5-turbo", temperature=0.0, max_attempts=10, sleep_time=5):
     """Sends chat messages to OpenAI's chat API and returns a response if successful.
 
+    This function will raise BadRequestError if the request to the OpenAI API is invalid to handle
+    the error in the policy.
+
     Parameters:
         messages (list)
             A list of dictionaries containing the messages to query the LLM with
@@ -42,6 +45,8 @@ def call_openai_chat(messages, model="gpt-3.5-turbo", temperature=0.0, max_attem
     Raises:
         AssertionError
             If the OpenAI API key is invalid
+        openai.BadRequestError
+            If the request to the OpenAI API is invalid
     """
     client = openai.OpenAI()
 
@@ -55,6 +60,8 @@ def call_openai_chat(messages, model="gpt-3.5-turbo", temperature=0.0, max_attem
                 temperature=temperature,
             )
             response = response.choices[0].message.content
+        except openai.BadRequestError as e:
+            raise e # Reraise the error for the policy to handle
         except openai.OpenAIError as e:
             assert not isinstance(e, openai.AuthenticationError), "Invalid OpenAI API key"
             print(e)
@@ -63,7 +70,7 @@ def call_openai_chat(messages, model="gpt-3.5-turbo", temperature=0.0, max_attem
             num_attempts += 1
     return response
 
-def prompt_llm(user_prompt, messages, model, temperature, **kwargs):
+def prompt_llm(user_prompt, messages, model, temperature, history=[], **kwargs):
     """Prompt an LLM with the given prompt and return the response.
 
     Parameters:
@@ -75,6 +82,8 @@ def prompt_llm(user_prompt, messages, model, temperature, **kwargs):
             The LLM model to use.
         temperature (float)
             The LLM temperature to use.
+        history (List[Dict[str, str]])
+            The history of alternating user-assistant messages to query the LLM with.
         kwargs (Dict[str, any])
             Optional parameters for LLM querying such as:
                 max_attempts (int)
@@ -98,13 +107,18 @@ def prompt_llm(user_prompt, messages, model, temperature, **kwargs):
     max_attempts = kwargs.get('max_attempts', 10)
     sleep_time = kwargs.get('sleep_time', 5)
     debug = kwargs.get('debug', False)
-    if not debug:
-        if model in get_openai_llms():
-            messages.append({"role": "user", "content": user_prompt})
-            response = call_openai_chat(messages, model, temperature, max_attempts, sleep_time)
-        else:
-            # TODO(chalo2000): Support open LLM models
-            raise NotImplementedError(f"Model {model} is not supported.")
-    else:
+    if debug:
         response = input("Please input the mocked LLM response: ")
+    elif model in get_openai_llms():
+        messages = messages.copy()
+        if history:
+            assert len(history) % 2 == 0, "History must have an even number of messages"
+            for i, message in enumerate(history):
+                role = "user" if i % 2 == 0 else "assistant"
+                messages.append({"role": role, "content": message})
+        messages.append({"role": "user", "content": user_prompt})
+        response = call_openai_chat(messages, model, temperature, max_attempts, sleep_time)
+    else:
+        # TODO(chalo2000): Support open LLM models
+        raise NotImplementedError(f"Model {model} is not supported.")
     return response
