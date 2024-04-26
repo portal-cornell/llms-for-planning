@@ -89,6 +89,8 @@ def plan(plan_policy, model, initial_state, goal, max_steps=20):
             The maximum number of steps to take to reach the goal.
     
     Returns:
+        reached_goal (bool)
+            Whether the goal was reached.
         action_sequence (list)
             The sequence of actions to take to reach the goal.
         graph (nx.DiGraph)
@@ -115,7 +117,7 @@ def plan(plan_policy, model, initial_state, goal, max_steps=20):
         steps += 1
         pbar.update(1)
     
-    # Get the shortest action sequence to the goal
+    # Get the shortest action sequence to the last selected state
     shortest_path = nx.shortest_path(graph, hash(initial_state), hash(selected_state))
     action_sequence = []
     for i in range(len(shortest_path) - 1):
@@ -124,4 +126,4 @@ def plan(plan_policy, model, initial_state, goal, max_steps=20):
         action = graph[current_state][next_state]["action"]
         action_sequence.append(action)
         style_goal_nodes(graph, current_state, next_state)
-    return action_sequence, graph
+    return model.did_reach_goal(selected_state, goal), action_sequence, graph

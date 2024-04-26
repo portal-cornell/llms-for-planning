@@ -7,8 +7,92 @@ import imageio
 import matplotlib.pyplot as plt
 import random
 import tempfile
+import shutil
 
 import pddlgym
+from pddlgym_planners.fd import FD
+
+# TODO(chalo2000): Move to separate location (along with the models)
+CURRENT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
+PDDL_DIR_PATH = os.path.join(CURRENT_DIR_PATH, "pddlgym", "pddlgym", "pddl")
+
+def add_domain_file(domain_file_path):
+    """
+    Adds a domain file to the PDDL directory.
+
+    Parameters:
+        domain_file_path (str):
+            Path to the domain file
+    
+    Returns:
+        pddlgym_domain_file_path (str): Path to the domain file in the PDDL directory
+    """
+    shutil.copy2(domain_file_path, PDDL_DIR_PATH)
+    domain_file_name = os.path.basename(domain_file_path)
+    pddlgym_domain_file_path = os.path.join(PDDL_DIR_PATH, domain_file_name)
+    return pddlgym_domain_file_path
+
+def add_problem_files(env_name, problem_dir_path):
+    """
+    Add problem files to the PDDL directory.
+
+    Parameters:
+        env_name (str):
+            Name of the environment (domain file name without the extension)
+        problem_dir_path (str):
+            Path to the directory containing the problem files
+    
+    Returns:
+        pddlgym_problem_dir_path (str):
+            Path to the problem files in the PDDL directory
+    """
+    pddl_problem_dir_path = os.path.join(PDDL_DIR_PATH, env_name)
+    if os.path.exists(pddl_problem_dir_path):
+        shutil.rmtree(pddl_problem_dir_path)
+    shutil.copytree(problem_dir_path, pddl_problem_dir_path)
+    return pddl_problem_dir_path
+
+def create_pddl_env(domain_file_path, problems_dir_path, render_fn_name):
+    """
+    Creates and returns a PDDLGym environment.
+
+    PDDLGym requires a domain file and problem files to be in the PDDL directory. We
+    temporarily copy the necessary files to that directory and delete them after the
+    environment has been created.
+
+    Parameters:
+        domain_file_path (str):
+            Path to the domain file
+        problems_dir_path (str):
+            Path to the directory containing the problem files
+        render_fn_name (str):
+            The name of the function to render the environment
+        problem_filename (str):
+            Name of the problem file to generate the environment for
+    
+    Returns:
+        env (pddlgym.PDDLEnv): PDDLGym environment
+    """
+    env_name = os.path.basename(domain_file_path).split(".")[0]
+    # Fixed PDDLGym settings
+    is_test_env = False
+    render_fn = None
+    if render_fn_name == "blocksworld":
+        render_fn = pddlgym.rendering.blocks_render
+    kwargs = {
+        'render': render_fn,
+        'operators_as_actions': True, 
+        'dynamic_action_space': True,
+        "raise_error_on_invalid_action": False
+        }
+    pddlgym.register_pddl_env(env_name, is_test_env, kwargs)
+
+    pddlgym_domain_file_path = add_domain_file(domain_file_path)
+    pddlgym_problem_dir_path = add_problem_files(env_name, problems_dir_path)
+    env = pddlgym.make(f"PDDLEnv{env_name.capitalize()}-v0")
+    os.remove(pddlgym_domain_file_path)
+    shutil.rmtree(pddlgym_problem_dir_path)
+    return env
 
 # TODO(chalo2000): Move Model and PDDLGymModel to a separate location
 class Model:
@@ -170,18 +254,29 @@ class PDDLGymModel(Model):
         str_literals = [str(literal) for literal in goal.literals]
         return f"Goal: {', '.join(str_literals)}"
     
-def make_pddlgym_model(env_name):
+def make_pddlgym_model(env_name=None, domain_file=None, instance_dir=None, render_fn_name=None):
     """Returns the model for the PDDLGym environment with the given name.
     
     Parameters:
-        env_name (str)
+        env_name (Optional[str])
             The name of the PDDLGym environment to make.
+        domain_file (Optional[str])
+            The path to the domain file.
+        instance_dir (Optional[str])
+            The directory containing the problem PDDL files.
+        render_fn_name (Optional[str])
+            The name of the function to render the environment.
     
     Returns:
         model (PDDLGymModel)
             The model for the PDDLGym environment
     """
-    env = pddlgym.make(env_name)
+    if domain_file and instance_dir:
+        env = create_pddl_env(domain_file, instance_dir, render_fn_name)
+    elif env_name:
+        env = pddlgym.make(env_name)
+    else:
+        raise ValueError("Either env_name or (domain_dir, instance_dir, render_fn_name) must be provided.")
     model = PDDLGymModel(env)
     return model
 
@@ -281,3 +376,20 @@ def play_env(env_name, max_steps=100, step_time=0.5, fps=4, mode="random", rende
     if gif_file:
         os.makedirs(os.path.dirname(gif_file), exist_ok=True)
         imageio.mimsave(gif_file, imgs, fps=4)
+
+def get_optimal_plan(domain, initial_state):
+    """Returns the optimal plan for the environment using the Fast Downward planner.
+    
+    Parameters:
+        domain (PDDLProblemParser)
+            The domain for an environment
+        initial_state (State)
+            The initial state of the environment.
+    
+    Returns:
+        plan (List[pddlgym.structs.Literal])
+            The optimal plan for the environment.
+    """
+    planner = FD()
+    plan = planner(domain, initial_state)
+    return plan

@@ -143,8 +143,9 @@ class RandomPolicy(PlanPolicy):
             state = graph.nodes[node]['state']
             model = graph.nodes[node]['model']
             
-            if model.did_reach_goal(state, goal) or len(self._actions_to_propose(graph, model, state)) > 0:
+            reached_goal = model.did_reach_goal(state, goal)
+            if reached_goal or len(self._actions_to_propose(graph, model, state)) > 0:
                 # A goal state is in the graph or there are still actions left to propose
-                self.done = True
+                self.done = reached_goal
                 return state
         assert False, "No states left to propose actions from."

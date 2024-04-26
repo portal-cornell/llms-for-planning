@@ -43,9 +43,9 @@ class ReActPolicy(PlanPolicy):
         
         self.chat_history = []
         self.truncated_chat_history = [] # Current chat history that fits within the context length
+        self.previous_state = None
         self.next_state = None
-        self.last_state = None
-
+        
         self.done = False
     
     def is_done(self):
@@ -155,6 +155,7 @@ class ReActPolicy(PlanPolicy):
         # Generate starter message
         starter_message = self._starter_message_template(initial_state_description, goal_description)
 
+        self.next_state = initial_state # Save initial state in case of invalid action at beginning
         return starter_message
     
     def _observation_message_template(self, observation):
@@ -181,7 +182,7 @@ class ReActPolicy(PlanPolicy):
         if len(self.chat_history) == 0:
             # Prompt with starter message
             user_prompt = plan
-        elif self.last_state == state:
+        elif self.previous_state == state:
             # Prompt with no change in state
             user_prompt = self._observation_message_template("No change in state.")
         else:
@@ -189,7 +190,7 @@ class ReActPolicy(PlanPolicy):
             assert hash(state) in graph.nodes, "The current state is not in the graph."
             observation = graph.nodes[hash(state)]["observation"]
             user_prompt = self._observation_message_template(observation)
-        self.last_state = state
+        self.previous_state = state
 
         # Get THINK and ACTION from LLM
         thought_and_action, self.truncated_chat_history = self._prompt_llm(user_prompt, self.action_proposal_prompt_params, history=self.truncated_chat_history)
@@ -204,7 +205,11 @@ class ReActPolicy(PlanPolicy):
 
         # Extract and return ACTION from LLM string response
         regex = r"Action:\s*(.+)"
-        action = re.search(regex, thought_and_action).group(1)
+        match = re.search(regex, thought_and_action)
+        if not match:
+            self.done = True # Malformed response; kill the planner
+            return []
+        action = match.group(1)
         action = action.replace(" ", "") # Remove spaces
         valid_actions = model.get_valid_actions(state) + [ReActPolicy.FINISH_ACTION]
         matching_action = list(filter(lambda x: str(x) == action, valid_actions))
