@@ -21,7 +21,7 @@ import pddlgym_utils
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    plan_policies = [policy_name for policy_name in NAME_TO_POLICY.keys() if policy_name != "llm"]
+    plan_policies = ["random"]
     parser.add_argument("--plan_policy", required=True, choices=plan_policies, help="The plan policy to use.")
     parser.add_argument("--env_name", required=True, help="The name of the environment.")
     parser.add_argument("--max_steps", type=int, default=20, help="The maximum number of steps to take to reach the goal.")
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     random.seed(args.seed)
     initial_state, _ = model.env.reset()
     goal = initial_state.goal
-    action_sequence, graph = plan(plan_policy, model, initial_state, goal, max_steps=args.max_steps)
+    reached_goal, action_sequence, graph = plan(plan_policy, model, initial_state, goal, max_steps=args.max_steps)
 
     # Draw graph
     if args.graph_file is not None:

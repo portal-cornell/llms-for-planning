@@ -21,6 +21,15 @@ class PlanPolicy:
         """
         self.kwargs = kwargs
 
+    def is_done(self):
+        """Returns whether the policy is done.
+        
+        Returns:
+            done (bool)
+                Whether the policy is done.
+        """
+        raise NotImplementedError
+    
     def generate_plan(self, model, initial_state, goal):
         """Generates a plan to reach the goal.
         
@@ -50,6 +59,25 @@ class PlanPolicy:
                 The current state of the environment.
             plan (object)
                 The plan to use to propose actions.
+        
+        Raises:
+            NotImplementedError
+                This function should be implemented in a subclass.
+        """
+        raise NotImplementedError
+    
+    def compute_next_states(self, graph, model, current_state, actions):
+        """Computes the next states and updates the graph.
+
+        Parameters:
+            graph (nx.DiGraph)
+                The graph to add the next states to.
+            model (Model)
+                The model containing the environment to simulate the actions in.
+            current_state (object)
+                The current state of the environment.
+            actions (list)
+                The actions to simulate in the environment.
         
         Raises:
             NotImplementedError

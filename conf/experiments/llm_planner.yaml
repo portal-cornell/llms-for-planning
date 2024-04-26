@@ -1,0 +1,24 @@
+# @package _global_
+defaults:
+  - override /llm: base_llm
+  - override /planner: base_planner
+
+llm:
+  prompts:
+    action_proposal_prompt:
+      experiment_name: action_proposal
+      prompt_description: initial
+      prompt_version: 1.0.0
+    
+    state_translation_prompt:
+      experiment_name: state_translation_blocksworld
+      prompt_description: initial
+      prompt_version: 1.0.0
+
+planner:
+  plan_policy: llm
+  env_name: PDDLEnvBlocks_operator_actions-v0
+  max_steps: 3
+  seed: 42
+  graph_file: ${hydra:runtime.output_dir}/blocks_operator_actions_llm.png
+  log_file: ${hydra:runtime.output_dir}/blocks_operator_actions_llm.txt

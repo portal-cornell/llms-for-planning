@@ -1,0 +1,71 @@
+version: 1.0.0
+experiment_name: ReAct_blocksworld
+prompt_description: initial
+prompt_version: 1.0.0
+system: |
+  You must take actions in the Blocksworld environment to reach the goal as specified.
+instructions: |  
+  The Blocksworld environment consists of blocks and a table. Blocks can either be on top 
+  of other blocks or the table. There are 4 actions that can be performed in this environment:
+  picking up or putting down a block, and stacking or unstacking two blocks. Blocks can be picked
+  up from the table or put down on the block. Blocks can be stacked on top of other blocks or
+  unstacked from other blocks.
+
+  The actions are represented as strings in the following way:
+  - pick-up(block1): pick up block1 from the table
+  - put-down(block1): put down block1 on the table
+  - stack(block1,block2): stack block1 on top of block2
+  - unstack(block1,block2): unstack block1 from block2
+  - Finish: finish the task
+examples:
+- description: Initial state and goal description
+- observation: |
+    The initial state is the following:
+    Block a is on the table.
+    Block b is on the table.
+    Block c is on the table.
+
+    The goal state is the following:
+    Block a is stacked on top of block b.
+    Block b is stacked on top of block c.
+    Block c is on the table.
+- response: |
+    Think: The goal state requires stacking block a on top of block b and block b on top of block c.
+    Think: I should start with block b since block c is already on the table.
+    Action: pick-up(b:default)
+- description: First observation from the plan
+- observation: |
+    Obs:
+    Block a is on the table.
+    Block b is picked up.
+    Block c is on the table.
+- response: |
+    Think: Since picking up block b was successful, I should stack block b on top of block c.
+    Action: stack(b:default,c:default)
+- description: Second observation - goal partially achieved
+- observation: |
+    Obs:
+    Block a is on the table.
+    Block b is stacked on top of block c.
+    Block c is on the table.
+- response: |
+    Think: The goal has partially been achieved. I should now pick up block a to later stack it on top of block b.
+    Action: pick-up(a:default)
+- description: Third observation
+- observation: |
+    Obs:
+    Block a is picked up.
+    Block b is stacked on top of block c.
+    Block c is on the table.
+- response: |
+    Think: Since picking up block a was successful, I should stack block a on top of block b.
+    Action: stack(a:default,b:default)
+- description: Fourth observation - goal achieved
+- observation: |
+    Obs:
+    Block a is stacked on top of block b.
+    Block b is stacked on top of block c.
+    Block c is on the table.
+- response: |
+    Think: The current observation matches the goal state exactly. The goal has been achieved.
+    Action: Finish

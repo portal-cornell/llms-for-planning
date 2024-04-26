@@ -7,6 +7,7 @@ TODO(chalo2000): Allow for interactive mode and actual ground truth mode calcula
 policy.
 """
 import os
+from copy import deepcopy
 from io import BytesIO
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -18,36 +19,51 @@ class LLMPolicy(PlanPolicy):
     """A plan policy that queries an LLM to propose actions and select next states."""
         
     def __init__(self, kwargs):
-        """Initializes the random policy.
+        """Initializes the LLM policy.
         
         Parameters:
             kwargs (dict)
-                The keyword arguments for the policy which include:
-                cheap (bool)
-                    Whether to use the cheap version of the get_actions_to_propose function.
-                num_actions (int)
-                    The number of actions to propose.
+                prompt_fn (function)
+                    The function to use to prompt the LLM.
+                llm (dict)
+                    The Hydra configurations for the LLM policy.
+                planner (dict)
+                    The Hydra configurations for the planner.
         """
         super().__init__(kwargs)
         self.prompt_fn = kwargs["prompt_fn"]
-        self.log_file = kwargs.get("log_file", None)
+        self.log_file = kwargs["planner"].get("log_file", None)
         if self.log_file:
             os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
         
         # State translation
-        self.state_translation_prompt_params = kwargs.get("state_translation_prompt", {})
+        self.state_translation_prompt_params = kwargs["llm"].get("state_translation_prompt", {})
 
         # Plan generation
-        self.ground_truth_plan = kwargs.get("ground_truth_plan", False)
-        self.plan_generation_prompt_params = kwargs.get("plan_generation_prompt", {})
+        self.ground_truth_plan = kwargs["llm"].get("ground_truth_plan", False)
+        self.plan_generation_prompt_params = kwargs["llm"].get("plan_generation_prompt", {})
 
         # Action proposal
-        self.ground_truth_action = kwargs.get("ground_truth_action", False)
-        self.action_proposal_prompt_params = kwargs.get("action_proposal_prompt", {})
+        self.ground_truth_action = kwargs["llm"].get("ground_truth_action", False)
+        self.action_proposal_prompt_params = kwargs["llm"].get("action_proposal_prompt", {})
 
         # State selection
-        self.ground_truth_state_selection = kwargs.get("ground_truth_state_selection", False)
-        self.state_selection_prompt_params = kwargs.get("state_selection_prompt", {})
+        self.ground_truth_state_selection = kwargs["llm"].get("ground_truth_state_selection", False)
+        self.state_selection_prompt_params = kwargs["llm"].get("state_selection_prompt", {})
+
+        self.done = False
+    
+    def is_done(self):
+        """Returns whether the policy is done.
+        
+        The LLM policy is done whenever the selected state satisfies the goal,
+        checked by the environment model.
+        
+        Returns:
+            done (bool)
+                Whether the policy is done.
+        """
+        return self.done
     
     def _write_to_log(self, log_file, data):
         """Writes data to a log file.
@@ -198,6 +214,28 @@ class LLMPolicy(PlanPolicy):
                 self._write_to_log(self.log_file, log)
         return matching_action
     
+    def compute_next_states(self, graph, model, current_state, actions):
+        """Computes the next states and updates the graph.
+
+        Parameters:
+            graph (nx.DiGraph)
+                The graph to add the next states to.
+            model (Model)
+                The model containing the environment to simulate the actions in.
+            current_state (object)
+                The current state of the environment.
+            actions (list)
+                The actions to simulate in the environment.
+        
+        Side Effects:
+            Modifies the graph by adding the next states as nodes and the actions as edges.
+        """
+        for action in actions:
+            model_copy = deepcopy(model)
+            next_state, _, _, _, _ = model_copy.env.step(action)
+            graph.add_node(hash(next_state), state=next_state, model=model_copy)
+            graph.add_edge(hash(current_state), hash(next_state), action=action)
+    
     def _interactive_select_state(self, graph, plan, goal):
         """Selects the next state to propose actions from interactively.
         
@@ -221,6 +259,8 @@ class LLMPolicy(PlanPolicy):
             input_state = input("Enter state idx: ")
         selected_node = list(graph.nodes)[int(input_state)]
         selected_state = graph.nodes[selected_node]["state"]
+        model = graph.nodes[selected_node]["model"]
+        self.done = model.did_reach_goal(selected_state, goal)
         if self.log_file:
                 log = f"State Selection (GT)\n{'-'*20}\nState Index: {input_state}\n\n"
                 self._write_to_log(self.log_file, log)
