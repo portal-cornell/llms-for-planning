@@ -101,14 +101,14 @@ def prompt_llm(user_prompt, messages, model, temperature, history=[], **kwargs):
             The user prompt to parse.
         messages (List[Dict[str, str]])
             The messages to query the LLM with.
-        model (str)
-            The LLM model to use.
+        model (Union[str, transformers.Pipeline])
+            The LLM model (or model in pipeline) to use for OpenAI calls (open LLM calls).
         temperature (float)
             The LLM temperature to use.
         history (List[Dict[str, str]])
             The history of alternating user-assistant messages to query the LLM with.
         kwargs (Dict[str, any])
-            Optional parameters for LLM querying such as:
+            Optional parameters for OpenAI LLM querying such as:
                 max_attempts (int)
                     The number of attempts to query the LLM before giving up
                 sleep_time (int)
@@ -119,6 +119,11 @@ def prompt_llm(user_prompt, messages, model, temperature, history=[], **kwargs):
                     Whether or not to send a mock respones with gpt_cost_estimator
                 completion_tokens (int)
                     The number of completion tokens to mock query the LLM with.
+            Optional parameters for Open LLMs
+                eos_token (str)
+                    End of sentence token (e.g. "<|eot_id|>")
+                max_new_tokens (int)
+                    Maximum number of new tokens allowed to generate
 
     Returns:
         response (Optional[dict])
@@ -134,7 +139,7 @@ def prompt_llm(user_prompt, messages, model, temperature, history=[], **kwargs):
     debug = kwargs.get('debug', False)
     if debug:
         response = input("Please input the mocked LLM response: ")
-    elif model in get_openai_llms():
+    else:
         messages = messages.copy()
         if history:
             assert len(history) % 2 == 0, "History must have an even number of messages"
@@ -142,24 +147,46 @@ def prompt_llm(user_prompt, messages, model, temperature, history=[], **kwargs):
                 role = "user" if i % 2 == 0 else "assistant"
                 messages.append({"role": role, "content": message})
         messages.append({"role": "user", "content": user_prompt})
-        response = call_openai_chat(
-            messages=messages,
-            model=model,
-            temperature=temperature,
-            **kwargs
-        )
-        logger.info(f"LLM Accumulated Cost: ${get_accumulated_cost()}")
-        if isinstance(response, ChatCompletion):
-            prompt_tokens = response.usage.prompt_tokens
-            logger.info(f"Prompt Tokens: {prompt_tokens}")
-            completion_tokens = response.usage.completion_tokens
-            logger.info(f"Completion Tokens: {completion_tokens}")
-            response = response.choices[0].message.content
-        elif isinstance(response, dict):
-            # Mocked response
-            response = response['choices'][0]['message']['content']
+        
+        if model in get_openai_llms():
+            response = call_openai_chat(
+                messages=messages,
+                model=model,
+                temperature=temperature,
+                **kwargs
+            )
+            logger.info(f"LLM Accumulated Cost: ${get_accumulated_cost()}")
+            if isinstance(response, ChatCompletion):
+                prompt_tokens = response.usage.prompt_tokens
+                logger.info(f"Prompt Tokens: {prompt_tokens}")
+                completion_tokens = response.usage.completion_tokens
+                logger.info(f"Completion Tokens: {completion_tokens}")
+                response = response.choices[0].message.content
+            elif isinstance(response, dict):
+                # Mocked response
+                response = response['choices'][0]['message']['content']
+                
+        else:
+            # TODO(chalo2000): Support open LLM models
+            # raise NotImplementedError(f"Model {model} is not supported.")
+            prompt = model.tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True
+            )
+
+            terminators = [model.tokenizer.eos_token_id]
+            eos_token = kwargs.get('eos_token', False)
+            if eos_token:
+                terminators.append(model.tokenizer.convert_tokens_to_ids(eos_token))
             
-    else:
-        # TODO(chalo2000): Support open LLM models
-        raise NotImplementedError(f"Model {model} is not supported.")
+            outputs = model(
+                prompt,
+                max_new_tokens=kwargs.get('max_new_tokens', None),
+                eos_token_id=terminators,
+                do_sample=True,
+                temperature=temperature
+            )
+            response = outputs[0]["generated_text"][len(prompt):]
+
     return response
