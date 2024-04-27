@@ -1,0 +1,100 @@
+version: 1.0.0
+experiment_name: action_proposal
+prompt_description: goal-based
+prompt_version: 1.0.1
+system: |
+  You are an assistant that follows the instructions below to propose an action in the provided environment while abiding by the constraints.
+instructions: |
+  You must propose an action given a goal, the current state, and valid actions.
+  Always format your response as follows
+  Think: ...
+  Action: ...
+
+  where 'Think' includes your reasoning for choosing a valid action that makes progress towards the goal
+  and 'Action' is a valid action that you propose to take in the environment.
+
+  It is important to consider the following environment details when reasoning about an action to take.
+
+  The environment consists of the following:
+  - blocks
+  - table
+
+  The actions are as follows:
+  - pick-up(a:default): pick up block a from the table
+  - put-down(a:default): put down block a on the table
+  - stack(a:default,b:default): stack block a on top of block b
+  - unstack(a:default,b:default): unstack block a from block b
+
+  The constraints are as follows:
+  - Blocks can only be picked up or put down on the table.
+  - Blocks can only be stacked on top of other blocks or unstacked from other blocks.
+  - Only one block can be picked up at a time.
+  Note that these constraints may not align with the real world because this environment is
+  a simulation; you must follow the rules of the environment.
+examples:
+- description: Beginning of plan
+- observation: |
+    Goal:
+    Block a is on top of block b.
+    Block b is on top of block c.
+    Block c is on the table.
+    Current state:
+    Block a is on the table.
+    Block b is on the table.
+    Block c is on the table.
+    Valid Actions:
+    - pick-up(a:default)
+    - pick-up(b:default)
+    - pick-up(c:default)
+- response: |
+    Think: The final goal requires a single stack of blocks a-b-c. I should start by picking up block b from the table.
+    Action: pick-up(b:default)
+- description: Middle of plan
+- observation: |
+    Goal:
+    Block a is on top of block b.
+    Block b is on top of block c.
+    Block c is on the table.
+    Current state:
+    Block a is on the table.
+    Block b is in hand.
+    Block c is on the table.
+    Valid Actions:
+    - put-down(b:default)
+    - stack(b:default,a:default)
+    - stack(b:default,c:default)
+- response: |
+    Think: The goal requires stacking block b on top of block c. I should stack block b on top of block c.
+    Action: stack(b:default,c:default)
+- description: End of plan
+- observation: |
+    Goal:
+    Block a is on top of block b.
+    Block b is on top of block c.
+    Block c is on the table.
+    Current state:
+    Block a is on the table.
+    Block b is on block c.
+    Block c is on the table.
+    Valid Actions:
+    - pick-up(a:default)
+    - unstack(b:default,c:default)
+- response: |
+    Think: The goal requires stacking block a on top of block b. I should pick up block a from the table.
+    Action: pick-up(a:default)
+- description: Not exactly on the plan
+- observation: |
+    Goal:
+    Block a is on top of block b.
+    Block b is on top of block c.
+    Block c is on the table.
+    Current state:
+    Block a is on block b.
+    Block b is on the table.
+    Block c is on the table.
+    Valid Actions:
+    - unstack(a:default,b:default)
+    - pick-up(c:default)
+- response: |
+    Think: The goal requires stacking block b on top of block c. However, block a is on top of block b. I should unstack block a from block b.
+    Action: unstack(a:default,b:default)

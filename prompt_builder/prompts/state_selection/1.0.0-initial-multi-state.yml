@@ -1,0 +1,77 @@
+version: 1.0.0
+experiment_name: state_selection
+prompt_description: initial-multi-state
+prompt_version: 1.0.0
+system: |
+  You are an assistant that chooses the best state with respect to a plan and a list of states.
+instructions: |
+  You must propose an action given a plan and the current state of the environment.
+  
+  The Blocksworld environment consists of blocks and a table. Blocks can either be on top 
+  of other blocks or the table. There are 4 actions that can be performed in this environment:
+  picking up or putting down a block, and stacking or unstacking two blocks. Blocks can be picked
+  up from the table or put down on the block. Blocks can be stacked on top of other blocks or
+  unstacked from other blocks.
+
+  The actions are represented as strings in the following way:
+  - pick-up(block1): pick up block1 from the table
+  - put-down(block1): put down block1 on the table
+  - stack(block1, block2): stack block1 on top of block2
+  - unstack(block1, block2): unstack block1 from block2
+examples:
+- description: Beginning of plan
+- observation: |
+    Initial state: block1 on table, block2 on table, block3 on table
+    Plan:
+    1) Pick up block2 from the table
+    2) Stack block2 on top of block3
+    3) Pick up block1 from the table
+    4) Stack block1 on top of block2
+    Current state: block1 on table, block2 on table, block3 on table
+- response: |
+    Reasoning: The plan requires picking up block2 from the table to stack it on top of block3. The
+    current state of the environment is that block2 is on the table. Therefore, the action to propose
+    is to pick up block2 from the table.
+    Action: pick-up(block2)
+- description: Middle of plan
+- observation: |
+    Initial state: block1 on table, block2 on table, block3 on table
+    Plan:
+    1) Pick up block2 from the table
+    2) Stack block2 on top of block3
+    3) Pick up block1 from the table
+    4) Stack block1 on top of block2
+    Current state: block1 on table, block2 in hand, block3 on table
+- response: |
+    Reasoning: The plan requires stacking block2 on top of block3. The current state of the environment
+    is that block2 is in hand. Therefore, the action to propose is to stack block2 on top of block3.
+    Action: stack(block2, block3)
+- description: End of plan
+- observation: |
+    Initial state: block1 on table, block2 on table, block3 on table
+    Plan:
+    1) Pick up block2 from the table
+    2) Stack block2 on top of block3
+    3) Pick up block1 from the table
+    4) Stack block1 on top of block2
+    Current state: block1 on table, block2 on block3, block3 on table
+- response: |
+    Reasoning: The plan requires picking up block2 from the table to stack it on top of block3. This
+    has already been done. Then, the plan requires picking up block1 from the table to stack it on top
+    of block2. The current state of the environment is that block1 is on the table. Therefore, the action
+    to propose is to pick up block1 from the table.
+    Action: pick-up(block1)
+- description: Not exactly on the plan
+- observation: |
+    Initial state: block1 on table, block2 on table, block3 on table
+    Plan:
+    1) Pick up block2 from the table
+    2) Stack block2 on top of block3
+    3) Pick up block1 from the table
+    4) Stack block1 on top of block2
+    Current state: block1 on block2, block2 on table, block3 on table
+- response: |
+    Reasoning: The plan requires picking up block2 from the table to stack it on top of block3. The
+    current state of the environment is that block1 is on block2. Therefore, the action to propose
+    is to unstack block1 from block2.
+    Action: unstack(block1, block2)

@@ -7,6 +7,8 @@ TODO(chalo2000): Allow for interactive mode and actual ground truth mode calcula
 policy.
 """
 import os
+import openai
+import re
 from copy import deepcopy
 from io import BytesIO
 import matplotlib.pyplot as plt
@@ -14,6 +16,7 @@ import networkx as nx
 from PIL import Image
 
 from .policy import PlanPolicy
+from . import utils
 
 class LLMPolicy(PlanPolicy):
     """A plan policy that queries an LLM to propose actions and select next states."""
@@ -35,21 +38,25 @@ class LLMPolicy(PlanPolicy):
         self.log_file = kwargs["planner"].get("log_file", None)
         if self.log_file:
             os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
-        
+        self.state_descriptions = {} # Cache for state descriptions
+
         # State translation
-        self.state_translation_prompt_params = kwargs["llm"].get("state_translation_prompt", {})
+        self.state_translation_prompt_params = kwargs["llm"]["prompts"].get("state_translation_prompt", {})
 
         # Plan generation
-        self.ground_truth_plan = kwargs["llm"].get("ground_truth_plan", False)
-        self.plan_generation_prompt_params = kwargs["llm"].get("plan_generation_prompt", {})
+        self.ground_truth_plan = False
+        self.plan_generation_prompt_params = kwargs["llm"]["prompts"].get("plan_generation_prompt", {})
 
         # Action proposal
-        self.ground_truth_action = kwargs["llm"].get("ground_truth_action", False)
-        self.action_proposal_prompt_params = kwargs["llm"].get("action_proposal_prompt", {})
+        self.ground_truth_action = False
+        self.action_proposal_prompt_params = kwargs["llm"]["prompts"].get("action_proposal_prompt", {})
 
         # State selection
-        self.ground_truth_state_selection = kwargs["llm"].get("ground_truth_state_selection", False)
-        self.state_selection_prompt_params = kwargs["llm"].get("state_selection_prompt", {})
+        self.ground_truth_state_selection = False
+        self.state_selection_prompt_params = kwargs["llm"]["prompts"].get("state_selection_prompt", {})
+
+        # Planner params
+        self.cheap = kwargs["planner"].get("cheap", True)
 
         self.done = False
     
@@ -75,7 +82,38 @@ class LLMPolicy(PlanPolicy):
                 The data to write to the log file.
         """
         with open(log_file, "a") as f:
-            f.write(data)
+            f.write(data + "\n\n")
+    
+    def _prompt_llm(self, user_prompt, params, history=[]):
+        """Prompts the LLM with messages and parameters.
+        
+        Parameters:
+            user_prompt (str)
+                The user prompt to query the LLM with.
+            params (dict)
+                The parameters to prompt the LLM with.
+            history (list)
+                The history of the conversation.
+        
+        Returns:
+            response (str)
+                The response from the LLM.
+            truncated_history (list)
+                The truncated history that fits within the context length.
+        """
+        success = False
+        truncated_history = history
+        while not success:
+            try:
+                response = self.prompt_fn(user_prompt, **params, history=truncated_history)
+                success = True
+            except openai.BadRequestError as e:
+                error_code = e.code
+                if error_code == 'context_length_exceeded':
+                    raise NotImplementedError("Context length exceeded. Please implement truncation.")
+                else:
+                    raise e # Raise other errors for user to handle
+        return response, truncated_history
     
     def generate_plan(self, model, initial_state, goal):
         """Generates a plan to reach the goal.
@@ -101,7 +139,7 @@ class LLMPolicy(PlanPolicy):
                 log = f"Plan Generation (GT)\n{'-'*20}\nPlan:\n{plan}\n\n"
                 self._write_to_log(self.log_file, log)
             return plan
-        return None # TODO(chalo2000): Add LLM plan generation
+        return goal
     
     def _interactive_graph_visualize(self, graph, state=None):
         """Displays a numbered graph to assist with interactions.
@@ -167,6 +205,25 @@ class LLMPolicy(PlanPolicy):
         print(action)
         return [action]
     
+    def _actions_to_propose(self, graph, model, state):
+        """Returns the actions to propose to reach the goal.
+        
+        Parameters:
+            graph (nx.DiGraph)
+                The graph to propose actions in.
+            model (Model)
+                The model to propose actions with.
+            state (object)
+                The current state of the environment.
+        
+        Returns:
+            actions_to_propose (list)
+                The actions to propose to reach the goal.
+        """
+        if self.cheap:
+            return utils.get_actions_to_propose_cheap(graph, model, state)
+        return utils.get_actions_to_propose(graph, model, state)
+    
     def propose_actions(self, graph, model, state, plan):
         """Proposes an action(s) to take in order to reach the goal.
         
@@ -188,30 +245,45 @@ class LLMPolicy(PlanPolicy):
             # TODO(chalo2000): Calculate ground truth with Dijkstra's algorithm
             return self._interactive_propose_actions(graph, model, state, plan)
         
-        # Get initial node state description
-        root_node = list(graph.nodes)[0]
-        initial_state = graph.nodes[root_node]["state"]
-        initial_state_str = model.state_to_str(initial_state)
-        initial_state_description = self.prompt_fn(initial_state_str, **self.state_translation_prompt_params)
+        # Prepare action proposal user prompt
+
+        # Get goal state description
+        if self.state_descriptions.get(hash(plan)):
+            goal_description = self.state_descriptions[hash(plan)]
+        else:
+            goal_str = model.goal_to_str(plan) # Plan is the goal
+            goal_description, _ = self._prompt_llm(goal_str, self.state_translation_prompt_params)
+            self.state_descriptions[hash(plan)] = goal_description
         
         # Get current node state description
-        state_str = model.state_to_str(state)
-        state_description = self.prompt_fn(state_str, **self.state_translation_prompt_params)
+        if self.state_descriptions.get(hash(state)):
+            state_description = self.state_descriptions[hash(state)] # Use cached state description
+        else:
+            state_str = model.state_to_str(state)
+            state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params)
+
+        # Get valid actions left to propose
+        valid_actions = self._actions_to_propose(graph, model, state)
+        valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
 
         # Get action from action proposal response
-        action_proposal_prompt =  f"Initial state:\n{initial_state_description}\n"
-        action_proposal_prompt += f"Plan:\n{plan}\n"
-        action_proposal_prompt += f"Current state:\n{state_description}"
-        print(action_proposal_prompt)
-        action_proposal_response = self.prompt_fn(action_proposal_prompt, **self.action_proposal_prompt_params)
-        print(action_proposal_response)
-        action = action_proposal_response.split("Action:")[1].strip()
-        # Filter valid actions and cast to string until finding the action
-        matching_action = list(filter(lambda x: str(x) == action, model.get_valid_actions(state)))
-        print(matching_action)
-        if self.log_file:
-                log = f"Action Proposal\n{'-'*20}\n{action_proposal_prompt}\n{action_proposal_response}\n\n"
-                self._write_to_log(self.log_file, log)
+        action_proposal_prompt =  f"Goal:\n{goal_description}\n"
+        action_proposal_prompt += f"Current state:\n{state_description}\n"
+        action_proposal_prompt += f"Valid Actions:\n{valid_actions_str}\n"
+        self._write_to_log(self.log_file, action_proposal_prompt)
+        action_proposal_response, _ = self._prompt_llm(action_proposal_prompt, self.action_proposal_prompt_params)
+        self._write_to_log(self.log_file, action_proposal_response)
+
+        # Extract and return action
+        regex = r"Action:\s*(.+)"
+        match = re.search(regex, action_proposal_response)
+        if not match:
+            self.done = True # Malformed response; kill the planner
+            return []
+        action = match.group(1)
+        action = action.replace(" ", "") # Remove spaces
+        valid_actions = model.get_valid_actions(state)
+        matching_action = list(filter(lambda x: str(x) == action, valid_actions))
         return matching_action
     
     def compute_next_states(self, graph, model, current_state, actions):
@@ -230,6 +302,9 @@ class LLMPolicy(PlanPolicy):
         Side Effects:
             Modifies the graph by adding the next states as nodes and the actions as edges.
         """
+        if len(actions) == 0:
+            return # No valid action found
+        
         for action in actions:
             model_copy = deepcopy(model)
             next_state, _, _, _, _ = model_copy.env.step(action)
@@ -289,4 +364,44 @@ class LLMPolicy(PlanPolicy):
         if self.ground_truth_state_selection:
             # TODO(chalo2000): Calculate ground truth with Dijkstra's algorithm
             return self._interactive_select_state(graph, plan, goal)
-        raise NotImplementedError # TODO(chalo2000): Add LLM state selection
+
+        goal_description = self.state_descriptions[hash(plan)] # Plan is the goal
+        states_to_select = []
+        for i, node in enumerate(graph.nodes):
+            state = graph.nodes[node]["state"]
+            model = graph.nodes[node]["model"]
+            if self.state_descriptions.get(hash(state)):
+                state_description = self.state_descriptions[hash(state)]
+            else:
+                state_str = model.state_to_str(state)
+                state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params)
+                self.state_descriptions[hash(state)] = state_description
+            
+            if len(self._actions_to_propose(graph, model, state)) > 0:
+                # Only append states that have valid actions to propose to save on LLM context length
+                states_to_select.append(f"s{i}:\n{state_description}")
+        
+        # Get state from state selection response
+        state_selection_prompt = f"Goal:\n{goal_description}\n"
+        state_selection_prompt += f"States:\n"
+        state_selection_prompt += "\n".join(states_to_select)
+        self._write_to_log(self.log_file, state_selection_prompt)
+        state_selection_response, _ = self._prompt_llm(state_selection_prompt, self.state_selection_prompt_params)
+        self._write_to_log(self.log_file, state_selection_response)
+
+        # Extract and return state
+        regex = r"Choice:\s*s(\d+)"
+        match = re.search(regex, state_selection_response)
+        if not match:
+            self.done = True # Malformed response; kill the planner
+            return []
+        state_choice = match.group(1)
+        selected_node = list(graph.nodes)[int(state_choice)]
+        selected_state = graph.nodes[selected_node]["state"]
+        
+        # Check if selected state is goal
+        model = graph.nodes[selected_node]["model"]
+        self.done = model.did_reach_goal(selected_state, goal)
+
+        return selected_state
+
