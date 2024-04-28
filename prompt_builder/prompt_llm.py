@@ -176,10 +176,10 @@ def prompt_llm(user_prompt, messages, model, temperature, history=[], **kwargs):
             )
 
             terminators = [model.tokenizer.eos_token_id]
-            eos_token = kwargs.get('eos_token', False)
+            eos_token = kwargs.get('eos_token', '<|eot_id|>')
             if eos_token:
                 terminators.append(model.tokenizer.convert_tokens_to_ids(eos_token))
-            
+
             outputs = model(
                 prompt,
                 max_new_tokens=kwargs.get('max_new_tokens', None),
