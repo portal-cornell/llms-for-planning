@@ -54,6 +54,8 @@ class LLMPolicy(PlanPolicy):
         # State selection
         self.ground_truth_state_selection = False
         self.state_selection_prompt_params = kwargs["llm"]["prompts"].get("state_selection_prompt", {})
+        self.states_to_rank = []
+        self.ranked_states = []
 
         # Planner params
         self.cheap = kwargs["planner"].get("cheap", True)
@@ -139,6 +141,7 @@ class LLMPolicy(PlanPolicy):
                 log = f"Plan Generation (GT)\n{'-'*20}\nPlan:\n{plan}\n\n"
                 self._write_to_log(self.log_file, log)
             return plan
+        self.states_to_rank = [initial_state]
         return goal
     
     def _interactive_graph_visualize(self, graph, state=None):
@@ -271,6 +274,10 @@ class LLMPolicy(PlanPolicy):
         action_proposal_prompt += f"Current state:\n{state_description}\n"
         action_proposal_prompt += f"Valid Actions:\n{valid_actions_str}\n"
         self._write_to_log(self.log_file, action_proposal_prompt)
+        if len(valid_actions) == 1:
+            self._write_to_log(self.log_file, f"[Skip LLM] Only one valid action: {valid_actions[0]}")
+            self.ranked_states.remove(state) # Removing state whose actions have been exhausted
+            return valid_actions
         action_proposal_response, _ = self._prompt_llm(action_proposal_prompt, self.action_proposal_prompt_params)
         self._write_to_log(self.log_file, action_proposal_response)
 
@@ -282,7 +289,6 @@ class LLMPolicy(PlanPolicy):
             return []
         action = match.group(1)
         action = action.replace(" ", "") # Remove spaces
-        valid_actions = model.get_valid_actions(state)
         matching_action = list(filter(lambda x: str(x) == action, valid_actions))
         return matching_action
     
@@ -310,6 +316,12 @@ class LLMPolicy(PlanPolicy):
             next_state, _, _, _, _ = model_copy.env.step(action)
             graph.add_node(hash(next_state), state=next_state, model=model_copy)
             graph.add_edge(hash(current_state), hash(next_state), action=action)
+            actions_left_to_propose = len(self._actions_to_propose(graph, model_copy, next_state)) > 0
+            is_ranked_state = next_state in self.ranked_states
+            is_state_to_rank = next_state in self.states_to_rank
+            if actions_left_to_propose and not is_ranked_state and not is_state_to_rank:
+                # State hasn't been ranked yet
+                self.states_to_rank.append(next_state)
     
     def _interactive_select_state(self, graph, plan, goal):
         """Selects the next state to propose actions from interactively.
@@ -341,6 +353,42 @@ class LLMPolicy(PlanPolicy):
                 self._write_to_log(self.log_file, log)
         return selected_state
 
+    def _get_pairwise_comparison(self, goal, s1, s2):
+        """Returns the pairwise comparison between two states.
+        
+        Parameters:
+            goal (object)
+                The goal to reach.
+            s1 (object)
+                The first state to compare.
+            s2 (object)
+                The second state to compare.
+        
+        Returns:
+            comparison (bool)
+                True if s1 >= s2, False otherwise.
+        
+        Side Effects:
+            - Writes to the log file
+        """
+        goal_description = self.state_descriptions[hash(goal)]
+        s1_description = self.state_descriptions[hash(s1)]
+        s2_description = self.state_descriptions[hash(s2)]
+        state_selection_prompt = f"Goal:\n{goal_description}\n"
+        state_selection_prompt += f"State 1:\n{s1_description}\n"
+        state_selection_prompt += f"State 2:\n{s2_description}\n"
+        self._write_to_log(self.log_file, state_selection_prompt)
+        state_selection_response, _ = self._prompt_llm(state_selection_prompt, self.state_selection_prompt_params)
+        self._write_to_log(self.log_file, state_selection_response)
+        
+        regex = r"Choice:\s*State\s*(\d+)"
+        match = re.search(regex, state_selection_response)
+        if not match:
+            self.done = True # Malformed response; kill the planner
+            return []
+        state_choice = match.group(1)
+        return state_choice == "1"
+
     def select_state(self, graph, plan, goal):
         """Selects the next state to propose actions from.
         
@@ -365,42 +413,32 @@ class LLMPolicy(PlanPolicy):
             # TODO(chalo2000): Calculate ground truth with Dijkstra's algorithm
             return self._interactive_select_state(graph, plan, goal)
 
-        goal_description = self.state_descriptions[hash(plan)] # Plan is the goal
-        states_to_select = []
-        for i, node in enumerate(graph.nodes):
-            state = graph.nodes[node]["state"]
-            model = graph.nodes[node]["model"]
+        # Iterate thorugh states to rank and perform a binary search to insert the state
+        for state in self.states_to_rank:
+            # Get state description
             if self.state_descriptions.get(hash(state)):
                 state_description = self.state_descriptions[hash(state)]
             else:
+                model = graph.nodes[hash(state)]["model"]
                 state_str = model.state_to_str(state)
                 state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params)
                 self.state_descriptions[hash(state)] = state_description
-            
-            if len(self._actions_to_propose(graph, model, state)) > 0:
-                # Only append states that have valid actions to propose to save on LLM context length
-                states_to_select.append(f"s{i}:\n{state_description}")
-        
-        # Get state from state selection response
-        state_selection_prompt = f"Goal:\n{goal_description}\n"
-        state_selection_prompt += f"States:\n"
-        state_selection_prompt += "\n".join(states_to_select)
-        self._write_to_log(self.log_file, state_selection_prompt)
-        state_selection_response, _ = self._prompt_llm(state_selection_prompt, self.state_selection_prompt_params)
-        self._write_to_log(self.log_file, state_selection_response)
+            # Binary search to find the correct rank
+            left = 0
+            right = len(self.ranked_states)
+            while left < right:
+                mid = (left + right) // 2
+                ranked_state = self.ranked_states[mid]
+                if self._get_pairwise_comparison(goal, state, ranked_state):
+                    right = mid # state >= ranked_state
+                else:
+                    left = mid + 1 # state < ranked_state
+            self.ranked_states.insert(left, state)
+        self.states_to_rank = []
+        selected_state = self.ranked_states[0]
 
-        # Extract and return state
-        regex = r"Choice:\s*s(\d+)"
-        match = re.search(regex, state_selection_response)
-        if not match:
-            self.done = True # Malformed response; kill the planner
-            return []
-        state_choice = match.group(1)
-        selected_node = list(graph.nodes)[int(state_choice)]
-        selected_state = graph.nodes[selected_node]["state"]
-        
         # Check if selected state is goal
-        model = graph.nodes[selected_node]["model"]
+        model = graph.nodes[hash(selected_state)]["model"]
         self.done = model.did_reach_goal(selected_state, goal)
 
         return selected_state
