@@ -60,6 +60,7 @@ class LLMPolicy(PlanPolicy):
         # Planner params
         self.cheap = kwargs["planner"].get("cheap", True)
 
+        self.chat_history = []
         self.done = False
     
     def is_done(self):
@@ -208,6 +209,24 @@ class LLMPolicy(PlanPolicy):
         print(action)
         return [action]
     
+    def _get_state_id(self, graph, state):
+        """Returns the ID of the state in the graph.
+        
+        Parameters:
+            graph (nx.DiGraph)
+                The graph to get the state ID from.
+            state (object)
+                The state to get the ID of.
+        
+        Returns:
+            state_id (int)
+                The ID of the state in the graph.
+        """
+        for i, node in enumerate(graph.nodes):
+            if graph.nodes[node]["state"] == state:
+                return i
+        assert False, "State not found in graph"
+    
     def _actions_to_propose(self, graph, model, state):
         """Returns the actions to propose to reach the goal.
         
@@ -264,6 +283,7 @@ class LLMPolicy(PlanPolicy):
         else:
             state_str = model.state_to_str(state)
             state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params)
+        state_id = self._get_state_id(graph, state)
 
         # Get valid actions left to propose
         valid_actions = self._actions_to_propose(graph, model, state)
@@ -271,15 +291,22 @@ class LLMPolicy(PlanPolicy):
 
         # Get action from action proposal response
         action_proposal_prompt =  f"Goal:\n{goal_description}\n"
-        action_proposal_prompt += f"Current state:\n{state_description}\n"
+        action_proposal_prompt += f"Current State {state_id}:\n{state_description}\n"
         action_proposal_prompt += f"Valid Actions:\n{valid_actions_str}\n"
-        self._write_to_log(self.log_file, action_proposal_prompt)
+        
         if len(valid_actions) == 1:
-            self._write_to_log(self.log_file, f"[Skip LLM] Only one valid action: {valid_actions[0]}")
+            skip_msg = f"[Skip LLM] Only one valid action: {valid_actions[0]}"
+            self._write_to_log(self.log_file, skip_msg)
+            self.chat_history.append(skip_msg)
             self.ranked_states.remove(state) # Removing state whose actions have been exhausted
             return valid_actions
-        action_proposal_response, _ = self._prompt_llm(action_proposal_prompt, self.action_proposal_prompt_params)
+        action_proposal_response, self.chat_history = self._prompt_llm(action_proposal_prompt, self.action_proposal_prompt_params, history=self.chat_history)
+        
+        # Write to log and append to chat history
+        self._write_to_log(self.log_file, action_proposal_prompt)
+        self.chat_history.append(action_proposal_prompt)
         self._write_to_log(self.log_file, action_proposal_response)
+        self.chat_history.append(action_proposal_response)
 
         # Extract and return action
         regex = r"Action:\s*(.+)"
@@ -309,6 +336,9 @@ class LLMPolicy(PlanPolicy):
             Modifies the graph by adding the next states as nodes and the actions as edges.
         """
         if len(actions) == 0:
+            # invalid_msg = "The action provided was invalid. Please provide a valid action from the list."
+            # self._write_to_log(self.log_file, invalid_msg)
+            # self.chat_history.append(invalid_msg)
             return # No valid action found
         
         for action in actions:
@@ -353,10 +383,12 @@ class LLMPolicy(PlanPolicy):
                 self._write_to_log(self.log_file, log)
         return selected_state
 
-    def _get_pairwise_comparison(self, goal, s1, s2):
+    def _get_pairwise_comparison(self, graph, goal, s1, s2):
         """Returns the pairwise comparison between two states.
         
         Parameters:
+            graph (nx.DiGraph)
+                The graph to select the next state from.
             goal (object)
                 The goal to reach.
             s1 (object)
@@ -373,13 +405,19 @@ class LLMPolicy(PlanPolicy):
         """
         goal_description = self.state_descriptions[hash(goal)]
         s1_description = self.state_descriptions[hash(s1)]
+        s1_id = self._get_state_id(graph, s1)
         s2_description = self.state_descriptions[hash(s2)]
+        s2_id = self._get_state_id(graph, s2)
         state_selection_prompt = f"Goal:\n{goal_description}\n"
-        state_selection_prompt += f"State 1:\n{s1_description}\n"
-        state_selection_prompt += f"State 2:\n{s2_description}\n"
+        state_selection_prompt += f"State {s1_id}:\n{s1_description}\n"
+        state_selection_prompt += f"State {s2_id}:\n{s2_description}\n"
+
+        state_selection_response, self.chat_history = self._prompt_llm(state_selection_prompt, self.state_selection_prompt_params, history=self.chat_history)
+        
         self._write_to_log(self.log_file, state_selection_prompt)
-        state_selection_response, _ = self._prompt_llm(state_selection_prompt, self.state_selection_prompt_params)
+        self.chat_history.append(state_selection_prompt)
         self._write_to_log(self.log_file, state_selection_response)
+        self.chat_history.append(state_selection_response)
         
         regex = r"Choice:\s*State\s*(\d+)"
         match = re.search(regex, state_selection_response)
@@ -387,7 +425,7 @@ class LLMPolicy(PlanPolicy):
             self.done = True # Malformed response; kill the planner
             return []
         state_choice = match.group(1)
-        return state_choice == "1"
+        return state_choice == str(s1_id)
 
     def select_state(self, graph, plan, goal):
         """Selects the next state to propose actions from.
@@ -429,7 +467,7 @@ class LLMPolicy(PlanPolicy):
             while left < right:
                 mid = (left + right) // 2
                 ranked_state = self.ranked_states[mid]
-                if self._get_pairwise_comparison(goal, state, ranked_state):
+                if self._get_pairwise_comparison(graph, goal, state, ranked_state):
                     right = mid # state >= ranked_state
                 else:
                     left = mid + 1 # state < ranked_state
@@ -437,9 +475,14 @@ class LLMPolicy(PlanPolicy):
         self.states_to_rank = []
         selected_state = self.ranked_states[0]
 
+        # Construct ranking list as ranking with >
+        ranking_list = "Current Ranking: "
+        ranking_list += " > ".join([f"State {self._get_state_id(graph, state)}" for state in self.ranked_states])
+        self._write_to_log(self.log_file, ranking_list)
+        # self.chat_history.append(ranking_list)
+
         # Check if selected state is goal
         model = graph.nodes[hash(selected_state)]["model"]
         self.done = model.did_reach_goal(selected_state, goal)
 
         return selected_state
-
