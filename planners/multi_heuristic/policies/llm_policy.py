@@ -295,6 +295,8 @@ class LLMPolicy(PlanPolicy):
         action_proposal_prompt += f"Valid Actions:\n{valid_actions_str}\n"
         
         if len(valid_actions) == 1:
+            self._write_to_log(self.log_file, action_proposal_prompt)
+            self.chat_history.append(action_proposal_prompt)
             skip_msg = f"[Skip LLM] Only one valid action: {valid_actions[0]}"
             self._write_to_log(self.log_file, skip_msg)
             self.chat_history.append(skip_msg)
