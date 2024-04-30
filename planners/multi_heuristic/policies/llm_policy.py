@@ -416,10 +416,11 @@ class LLMPolicy(PlanPolicy):
 
         state_selection_response, self.chat_history = self._prompt_llm(state_selection_prompt, self.state_selection_prompt_params, history=self.chat_history)
         
-        self._write_to_log(self.log_file, state_selection_prompt)
-        self.chat_history.append(state_selection_prompt)
-        self._write_to_log(self.log_file, state_selection_response)
-        self.chat_history.append(state_selection_response)
+        # Kushal experiment
+        self._write_to_log(self.log_file, f"NOT INCLUDED IN HISTORY:\n{state_selection_prompt}")
+        # self.chat_history.append(state_selection_prompt)
+        self._write_to_log(self.log_file, f"NOT INCLUDED IN HISTORY:\n{state_selection_response}")
+        # self.chat_history.append(state_selection_response)
         
         regex = r"Choice:\s*State\s*(\d+)"
         match = re.search(regex, state_selection_response)
