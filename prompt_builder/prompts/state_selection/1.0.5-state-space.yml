@@ -7,12 +7,15 @@ system: |
 instructions: |
   You must select the state with fewer steps to satisfy the goal between two states.
   
-  You will receive a goal and the state space to choose from as follows:
-  Goal: ...
+  You will receive a history of chat history and the state space to choose from as follows:
+  <history>
+  Optional[Error Feedback: ...]
   State Space: ...
 
-  where 'Goal' describes the final state that needs to be achieved and 'State Space' is a JSON
-  representation of a tree of states to choose from as shown below:
+  where <history> includes interactions with the environment where another assistant reasons about and
+  then proposes an action while 'State Space' is a JSON representation of a tree of states to choose
+  from. You may also receive 'Error Feedback' if the state you selected in a previous conversation was
+  invalid. The 'State Space' representation is shown below:
 
   {
     "steps": 0,
@@ -52,12 +55,14 @@ instructions: |
   Think: ...
   Choice: ...
   
-  where 'Think' includes your reasoning for choosing a state that is closest towards the goal
-  and 'Choice' is the state you choose.
+  where 'Think' includes your reasoning for choosing a state that is closest towards the goal (where
+  the goal is included in the chat history) and 'Choice' is the state you choose. You should not
+  select a state if it no longer has any valid actions left to try.
 
   It is important to consider past environment interactions and the tree when reasoning about a 
   state to choose. The chat history will include reasoning and environment interactions from another
-  assistant which you can use to make an informed decision. It will also contain descriptions of the
+  assistant which you can use to make an informed decision. The previous assistant was not an
+  oracle and may have made mistakes in their reasoning. It will also contain descriptions of the
   states in the tree to help you make a decision.
 
   Below is a description of the environment:

@@ -51,11 +51,13 @@ class LLMPolicy(PlanPolicy):
         # Action proposal
         self.ground_truth_action = False
         self.action_proposal_prompt_params = kwargs["llm"]["prompts"].get("action_proposal_prompt", {})
+        self.action_feedback_msg = None
 
         # State selection
         self.ground_truth_state_selection = False
         self.state_selection_prompt_params = kwargs["llm"]["prompts"].get("state_selection_prompt", {})
         self.tree_json = {}
+        self.state_selection_feedback_msg = None
 
         # Planner params
         self.cheap = kwargs["planner"].get("cheap", True)
@@ -270,13 +272,15 @@ class LLMPolicy(PlanPolicy):
         # Prepare action proposal user prompt
 
         # Get goal state description
-        if self.state_descriptions.get(hash(plan)):
-            goal_description = self.state_descriptions[hash(plan)]
-        else:
-            goal_str = model.goal_to_str(plan) # Plan is the goal
-            goal_description, _ = self._prompt_llm(goal_str, self.state_translation_prompt_params)
-            self.state_descriptions[hash(plan)] = goal_description
-        
+        # if self.state_descriptions.get(hash(plan)):
+        #     goal_description = self.state_descriptions[hash(plan)]
+        # else:
+        #     goal_str = model.goal_to_str(plan) # Plan is the goal
+        #     goal_description, _ = self._prompt_llm(goal_str, self.state_translation_prompt_params)
+        #     self.state_descriptions[hash(plan)] = goal_description
+        goal_description = model.goal_to_str(state, plan) # Plan is the goal
+        pretty_goal_description = json.dumps(goal_description, indent=4)
+
         # Get current node state description
         if self.state_descriptions.get(hash(state)):
             state_description = self.state_descriptions[hash(state)] # Use cached state description
@@ -287,10 +291,17 @@ class LLMPolicy(PlanPolicy):
 
         # Get valid actions left to propose
         valid_actions = self._actions_to_propose(graph, model, state)
+        if len(valid_actions) == 0:
+            self.state_selection_feedback_msg = "There are no valid actions left to propose. Please select a new state."
+            return []
         valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
 
         # Get action from action proposal response
-        action_proposal_prompt =  f"Goal:\n{goal_description}\n"
+        action_proposal_prompt = ""
+        if self.action_feedback_msg:
+            action_proposal_prompt += f"Error Feedback: {self.action_feedback_msg}\n"
+            self.action_feedback_msg = None
+        action_proposal_prompt +=  f"Goal Tracker:\n{pretty_goal_description}\n"
         action_proposal_prompt += f"Current State {state_id}:\n{state_description}\n"
         action_proposal_prompt += f"Valid Actions:\n{valid_actions_str}\n"
         
@@ -300,7 +311,6 @@ class LLMPolicy(PlanPolicy):
             skip_msg = f"[Skip LLM] Only one valid action: {valid_actions[0]}"
             self._write_to_log(self.log_file, skip_msg)
             self.chat_history.append(skip_msg)
-            self.ranked_states.remove(state) # Removing state whose actions have been exhausted
             return valid_actions
         action_proposal_response, self.chat_history = self._prompt_llm(action_proposal_prompt, self.action_proposal_prompt_params, history=self.chat_history)
         
@@ -314,11 +324,14 @@ class LLMPolicy(PlanPolicy):
         regex = r"Action:\s*(.+)"
         match = re.search(regex, action_proposal_response)
         if not match:
-            self.done = True # Malformed response; kill the planner
+            self.action_feedback_msg = "The action was malformed. Please provide a valid action in the form 'Action: <action>'."
+            # self.done = True # Malformed response; kill the planner
             return []
         action = match.group(1)
-        action = action.replace(" ", "") # Remove spaces
-        matching_action = list(filter(lambda x: str(x) == action, valid_actions))
+        stripped_action = action.replace(" ", "") # Remove spaces
+        matching_action = list(filter(lambda x: str(x) == stripped_action, valid_actions))
+        if len(matching_action) == 0:
+            self.action_feedback_msg = f"The action provided, '{action}' was invalid. Please provide a valid action from the list."
         return matching_action
     
     def compute_next_states(self, graph, model, current_state, actions):
@@ -516,8 +529,12 @@ class LLMPolicy(PlanPolicy):
             # TODO(chalo2000): Calculate ground truth with Dijkstra's algorithm
             return self._interactive_select_state(graph, plan, goal)
         
-        goal_description = self.state_descriptions[hash(goal)]
-        state_selection_prompt = f"Goal:\n{goal_description}\n"
+        # goal_description = self.state_descriptions[hash(goal)]
+        # state_selection_prompt = f"Goal:\n{goal_description}\n"
+        state_selection_prompt = ""
+        if self.state_selection_feedback_msg:
+            state_selection_prompt += f"Error Feedback: {self.state_selection_feedback_msg}\n"
+            self.state_selection_feedback_msg = None
         tree_json = self._create_tree_json(graph)
         pretty_tree_json = json.dumps(tree_json, indent=4)
         state_selection_prompt += f"State Space:\n{pretty_tree_json}\n"
