@@ -9,6 +9,7 @@ policy.
 import os
 import openai
 import re
+import json
 from copy import deepcopy
 from io import BytesIO
 import matplotlib.pyplot as plt
@@ -54,14 +55,14 @@ class LLMPolicy(PlanPolicy):
         # State selection
         self.ground_truth_state_selection = False
         self.state_selection_prompt_params = kwargs["llm"]["prompts"].get("state_selection_prompt", {})
-        self.states_to_rank = []
-        self.ranked_states = []
+        self.tree_json = {}
 
         # Planner params
         self.cheap = kwargs["planner"].get("cheap", True)
 
         self.chat_history = []
         self.done = False
+        
     
     def is_done(self):
         """Returns whether the policy is done.
@@ -142,7 +143,6 @@ class LLMPolicy(PlanPolicy):
                 log = f"Plan Generation (GT)\n{'-'*20}\nPlan:\n{plan}\n\n"
                 self._write_to_log(self.log_file, log)
             return plan
-        self.states_to_rank = [initial_state]
         return goal
     
     def _interactive_graph_visualize(self, graph, state=None):
@@ -348,12 +348,6 @@ class LLMPolicy(PlanPolicy):
             next_state, _, _, _, _ = model_copy.env.step(action)
             graph.add_node(hash(next_state), state=next_state, model=model_copy)
             graph.add_edge(hash(current_state), hash(next_state), action=action)
-            actions_left_to_propose = len(self._actions_to_propose(graph, model_copy, next_state)) > 0
-            is_ranked_state = next_state in self.ranked_states
-            is_state_to_rank = next_state in self.states_to_rank
-            if actions_left_to_propose and not is_ranked_state and not is_state_to_rank:
-                # State hasn't been ranked yet
-                self.states_to_rank.append(next_state)
     
     def _interactive_select_state(self, graph, plan, goal):
         """Selects the next state to propose actions from interactively.
@@ -385,6 +379,75 @@ class LLMPolicy(PlanPolicy):
                 self._write_to_log(self.log_file, log)
         return selected_state
 
+    def _create_tree_json(self, graph):
+        """Creates a JSON representation of the graph.
+        
+        The format of the JSON is
+        {
+            "steps": 0,
+            "state": ...,
+            "parent": ...,
+            "action_to_parent": ...,
+            "action_from_parent": ...,
+            "actions_left": ...,
+            "children": [
+            {
+                "steps": 1,
+                "state": ...,
+                "parent": ...,
+                "action_to_parent": ...,
+                "action_from_parent": ...,
+                "actions_left": ...,
+                "children": [...]
+            },
+            ...
+            ]
+        }
+
+        Parameters:
+            graph (nx.DiGraph)
+                The graph to create a JSON representation of.
+        
+        Returns:
+            tree_json (dict)
+                The JSON representation of the graph.
+        """
+        # Create tree JSON
+        tree_json = {}
+        root = list(graph.nodes)[0]
+
+        tree_json["steps"] = 0
+        tree_json["state"] = "State 0"
+        tree_json["parent"] = None
+        tree_json["action_to_parent"] = None
+        tree_json["action_from_parent"] = None
+        str_actions_to_propose = [str(action) for action in self._actions_to_propose(graph, graph.nodes[root]["model"], graph.nodes[root]["state"])]
+        tree_json["actions_left"] = str_actions_to_propose
+        tree_json["children"] = []
+        visited = set()
+        visited.add(root)
+        stack = [(root, tree_json)]
+        while stack:
+            current_node, current_json = stack.pop()
+            for child in graph.successors(current_node):
+                if child in visited:
+                    continue
+                visited.add(child)
+                child_json = {}
+                child_json["steps"] = current_json["steps"] + 1
+                child_json["state"] = f"State {self._get_state_id(graph, graph.nodes[child]['state'])}"
+                child_json["parent"] = current_json["state"]
+                # Action to parent may have not been added yet so could be None
+                action_to_parent_edge = graph.get_edge_data(child, current_node)
+                child_json["action_to_parent"] = str(action_to_parent_edge["action"]) if action_to_parent_edge is not None else None
+                child_json["action_from_parent"] = str(graph[current_node][child]["action"])
+                str_actions_to_propose = [str(action) for action in self._actions_to_propose(graph, graph.nodes[child]["model"], graph.nodes[child]["state"])]
+                child_json["actions_left"] = str_actions_to_propose
+                child_json["children"] = []
+                current_json["children"].append(child_json)
+                stack.append((child, child_json))
+        return tree_json
+    
     def _get_pairwise_comparison(self, graph, goal, s1, s2):
         """Returns the pairwise comparison between two states.
         
@@ -416,7 +479,6 @@ class LLMPolicy(PlanPolicy):
 
         state_selection_response, self.chat_history = self._prompt_llm(state_selection_prompt, self.state_selection_prompt_params, history=self.chat_history)
         
-        # Kushal experiment
         self._write_to_log(self.log_file, f"NOT INCLUDED IN HISTORY:\n{state_selection_prompt}")
         # self.chat_history.append(state_selection_prompt)
         self._write_to_log(self.log_file, f"NOT INCLUDED IN HISTORY:\n{state_selection_response}")
@@ -453,39 +515,28 @@ class LLMPolicy(PlanPolicy):
         if self.ground_truth_state_selection:
             # TODO(chalo2000): Calculate ground truth with Dijkstra's algorithm
             return self._interactive_select_state(graph, plan, goal)
+        
+        goal_description = self.state_descriptions[hash(goal)]
+        state_selection_prompt = f"Goal:\n{goal_description}\n"
+        tree_json = self._create_tree_json(graph)
+        pretty_tree_json = json.dumps(tree_json, indent=4)
+        state_selection_prompt += f"State Space:\n{pretty_tree_json}\n"
+        state_selection_response, self.chat_history = self._prompt_llm(state_selection_prompt, self.state_selection_prompt_params, history=self.chat_history)
+        self._write_to_log(self.log_file, f"NOT INCLUDED IN HISTORY:\n{state_selection_prompt}")
+        self._write_to_log(self.log_file, f"NOT INCLUDED IN HISTORY:\n{state_selection_response}")
 
-        # Iterate thorugh states to rank and perform a binary search to insert the state
-        for state in self.states_to_rank:
-            # Get state description
-            if self.state_descriptions.get(hash(state)):
-                state_description = self.state_descriptions[hash(state)]
-            else:
-                model = graph.nodes[hash(state)]["model"]
-                state_str = model.state_to_str(state)
-                state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params)
-                self.state_descriptions[hash(state)] = state_description
-            # Binary search to find the correct rank
-            left = 0
-            right = len(self.ranked_states)
-            while left < right:
-                mid = (left + right) // 2
-                ranked_state = self.ranked_states[mid]
-                if self._get_pairwise_comparison(graph, goal, state, ranked_state):
-                    right = mid # state >= ranked_state
-                else:
-                    left = mid + 1 # state < ranked_state
-            self.ranked_states.insert(left, state)
-        self.states_to_rank = []
-        selected_state = self.ranked_states[0]
-
-        # Construct ranking list as ranking with >
-        ranking_list = "Current Ranking: "
-        ranking_list += " > ".join([f"State {self._get_state_id(graph, state)}" for state in self.ranked_states])
-        self._write_to_log(self.log_file, ranking_list)
-        # self.chat_history.append(ranking_list)
-
+        # Extract the selected state ID
+        regex = r"Choice:\s*State\s*(\d+)"
+        match = re.search(regex, state_selection_response)
+        if not match:
+            self.done = True # Malformed response; kill the planner
+            return []
+        state_choice = match.group(1)
+        selected_node = list(graph.nodes)[int(state_choice)]
+        selected_state = graph.nodes[selected_node]["state"]
+    
         # Check if selected state is goal
-        model = graph.nodes[hash(selected_state)]["model"]
+        model = graph.nodes[selected_node]["model"]
         self.done = model.did_reach_goal(selected_state, goal)
 
         return selected_state

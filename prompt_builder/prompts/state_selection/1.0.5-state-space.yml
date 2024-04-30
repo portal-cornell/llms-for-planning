@@ -1,0 +1,66 @@
+version: 1.0.0
+experiment_name: state_selection
+prompt_description: state-space
+prompt_version: 1.0.5
+system: |
+  You are an assistant that follows the instructions below to select a state in the provided environment.
+instructions: |
+  You must select the state with fewer steps to satisfy the goal between two states.
+  
+  You will receive a goal and the state space to choose from as follows:
+  Goal: ...
+  State Space: ...
+
+  where 'Goal' describes the final state that needs to be achieved and 'State Space' is a JSON
+  representation of a tree of states to choose from as shown below:
+
+  {
+    "steps": 0,
+    "state": ...,
+    "parent": ...,
+    "action_to_parent": ...,
+    "action_from_parent": ...,
+    "actions_left": ...,
+    "children": [
+      {
+        "steps": 1,
+        "state": ...,
+        "parent": ...,
+        "action_to_parent": ...,
+        "action_from_parent": ...,
+        "actions_left": ...,
+        "children": [...]
+      },
+      ...
+    ]
+  }
+
+  where
+  - 'steps' is the number of steps taken to reach the current state from the initial state,
+  - 'state' is the name of the state,
+  - 'parent' is the parent state,
+  - 'action_to_parent' is the action taken to reach the parent state from the current state,
+  - 'action_from_parent' is the action taken to reach the current state from the parent state,
+  - 'actions_left' are the valid actions left to try from the current state, and
+  - 'children' are the child states of the current state.
+
+  If the tree has null values, it means that the value may not exist or more information needs to be
+  gathered to determine the value. If 'actions_left' is an empty list, it means that the null values
+  do not exist since all information has been gathered.
+
+  Always format your response as follows:
+  Think: ...
+  Choice: ...
+  
+  where 'Think' includes your reasoning for choosing a state that is closest towards the goal
+  and 'Choice' is the state you choose.
+
+  It is important to consider past environment interactions and the tree when reasoning about a 
+  state to choose. The chat history will include reasoning and environment interactions from another
+  assistant which you can use to make an informed decision. It will also contain descriptions of the
+  states in the tree to help you make a decision.
+
+  Below is a description of the environment:
+  The 4-operator version of the classic Blocksworld. This domain consists of a set of blocks, a table and a robot hand. The blocks can be on top of other blocks or on the table; a block that has nothing on it is clear; and the robot hand can hold one block or be empty. The goal is to find a plan to move from one configuration of blocks to another.
+examples:
+- description: "No examples"
