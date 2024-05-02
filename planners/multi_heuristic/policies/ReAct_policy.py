@@ -85,7 +85,6 @@ class ReActPolicy(PlanPolicy):
             except openai.BadRequestError as e:
                 error_code = e.code
                 if error_code == 'context_length_exceeded':
-                    import pdb; pdb.set_trace()
                     assert len(truncated_history) > 2, "The starter user-assistant pair is too long."
                     # Remove one user-assistant pair from the history
                     starter_messages = truncated_history[:2]

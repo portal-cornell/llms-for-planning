@@ -3,9 +3,11 @@ experiment_name: state_selection
 prompt_description: state-space
 prompt_version: 1.0.5
 system: |
-  You are an assistant that follows the instructions below to select a state in the provided environment.
+  You are working with another assistant to reach a goal in the provided environment.
+  Your goal is select a state that allows the other assistant to make the most progress towards the goal.
+  The other assistant will then propose an action that makes progress towards satisfying all the subgoals in the goal.
 instructions: |
-  You must select the state with fewer steps to satisfy the goal between two states.
+  You must select the state that makes the most progress towards satisfying the goal given the history of chat interactions and the state space.
   
   You will receive a history of chat history and the state space to choose from as follows:
   <history>
@@ -52,23 +54,24 @@ instructions: |
   do not exist since all information has been gathered.
 
   Always format your response as follows:
+  Short-term progress: ...
+  Long-term progress: ...
   Think: ...
-  Choice: ...
+  Choice: State i
   
-  where 'Think' includes your reasoning for choosing a state that is closest towards the goal (where
-  the goal is included in the chat history) and 'Choice' is the state you choose. You should not
-  select a state if it no longer has any valid actions left to try.
+  where 
+  - 'Short-term progress' describes whether the previous action made progress towards the goal,
+    - Were any subgoals in the Goal Tracker satisfied?
+  - 'Long-term progress' describes whether or not the new state allows for more progress towards the goal,
+    - Do any subgoals require going back to a previous state to satisfy them? 
+  - 'Think' includes your reasoning for continuing with the new state or choosing a different state,
+  - 'Choice' is the state you choose where i is the state's ID. If the goal state is in the state space,
+    you should choose it.
 
-  It is important to consider past environment interactions and the tree when reasoning about a 
-  state to choose. The chat history will include reasoning and environment interactions from another
-  assistant which you can use to make an informed decision. The previous assistant was not an
-  oracle and may have made mistakes in their reasoning. It will also contain descriptions of the
-  states in the tree to help you make a decision.
-
-  The most important thing to consider is whether future progress towards the goal is possible from
-  the state you choose. If the state you choose leads to a dead end, it will be impossible to reach
-  the goal. Consider exploring earlier states in the tree if you believe that the current state will
-  take more effort to reach the goal.
+  When reasoning about a state to choose, consider the following in order of importance:
+  1) Is the state a dead end? Some subgoals may require going back to a previous state to satisfy them.
+  2) Is the state closer to satisfying the goal than other states? Some states may require more steps
+     to satisfy the goal.
 
   Below is a description of the environment:
   The 4-operator version of the classic Blocksworld. This domain consists of a set of blocks, a table and a robot hand. The blocks can be on top of other blocks or on the table; a block that has nothing on it is clear; and the robot hand can hold one block or be empty. The goal is to find a plan to move from one configuration of blocks to another.

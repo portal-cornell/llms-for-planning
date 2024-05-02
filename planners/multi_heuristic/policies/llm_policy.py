@@ -18,6 +18,7 @@ from PIL import Image
 
 from .policy import PlanPolicy
 from . import utils
+from .utils import convert_states_to_bitmap_sokoban, map_llm_action_sokoban
 
 class LLMPolicy(PlanPolicy):
     """A plan policy that queries an LLM to propose actions and select next states."""
@@ -52,12 +53,17 @@ class LLMPolicy(PlanPolicy):
         self.ground_truth_action = False
         self.action_proposal_prompt_params = kwargs["llm"]["prompts"].get("action_proposal_prompt", {})
         self.action_feedback_msg = None
+        self.action_history = []
 
         # State selection
         self.ground_truth_state_selection = False
         self.state_selection_prompt_params = kwargs["llm"]["prompts"].get("state_selection_prompt", {})
         self.tree_json = {}
         self.state_selection_feedback_msg = None
+        self.current_state = None
+        self.next_state = None
+        self.state_history = []
+        self.action_no_reasoning_history = []
 
         # Planner params
         self.cheap = kwargs["planner"].get("cheap", True)
@@ -145,6 +151,8 @@ class LLMPolicy(PlanPolicy):
                 log = f"Plan Generation (GT)\n{'-'*20}\nPlan:\n{plan}\n\n"
                 self._write_to_log(self.log_file, log)
             return plan
+        self.current_state = initial_state
+        self.next_state = initial_state
         return goal
     
     def _interactive_graph_visualize(self, graph, state=None):
@@ -288,11 +296,12 @@ class LLMPolicy(PlanPolicy):
             state_str = model.state_to_str(state)
             state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params)
         state_id = self._get_state_id(graph, state)
+        intervention_msg = "" if self.current_state == self.next_state else " (Intervention)"
 
-        # Get valid actions left to propose
-        valid_actions = self._actions_to_propose(graph, model, state)
+        # Get valid actions from model
+        valid_actions = model.get_valid_actions(state) # self._actions_to_propose(graph, model, state)
         if len(valid_actions) == 0:
-            self.state_selection_feedback_msg = "There are no valid actions left to propose. Please select a new state."
+            self.state_selection_feedback_msg = f"There are no valid actions left to propose at State {state_id}. Please select a new state."
             return []
         valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
 
@@ -302,23 +311,25 @@ class LLMPolicy(PlanPolicy):
             action_proposal_prompt += f"Error Feedback: {self.action_feedback_msg}\n"
             self.action_feedback_msg = None
         action_proposal_prompt +=  f"Goal Tracker:\n{pretty_goal_description}\n"
-        action_proposal_prompt += f"Current State {state_id}:\n{state_description}\n"
+        action_proposal_prompt += f"Current State {state_id}{intervention_msg}:\n{state_description}\n"
         action_proposal_prompt += f"Valid Actions:\n{valid_actions_str}\n"
         
-        if len(valid_actions) == 1:
-            self._write_to_log(self.log_file, action_proposal_prompt)
-            self.chat_history.append(action_proposal_prompt)
-            skip_msg = f"[Skip LLM] Only one valid action: {valid_actions[0]}"
-            self._write_to_log(self.log_file, skip_msg)
-            self.chat_history.append(skip_msg)
-            return valid_actions
-        action_proposal_response, self.chat_history = self._prompt_llm(action_proposal_prompt, self.action_proposal_prompt_params, history=self.chat_history)
+        # if len(valid_actions) == 1:
+        #     self._write_to_log(self.log_file, action_proposal_prompt)
+        #     self.chat_history.append(action_proposal_prompt)
+        #     self.action_no_reasoning_history.append(action_proposal_prompt)
+        #     skip_msg = f"[Skip LLM] Only one valid action: {valid_actions[0]}"
+        #     self._write_to_log(self.log_file, skip_msg)
+        #     self.chat_history.append(skip_msg)
+        #     self.action_no_reasoning_history.append(skip_msg)
+        #     return valid_actions
+        action_proposal_response, self.action_history = self._prompt_llm(action_proposal_prompt, self.action_proposal_prompt_params, history=self.action_history)
         
         # Write to log and append to chat history
         self._write_to_log(self.log_file, action_proposal_prompt)
-        self.chat_history.append(action_proposal_prompt)
+        self.action_history.append(action_proposal_prompt)
         self._write_to_log(self.log_file, action_proposal_response)
-        self.chat_history.append(action_proposal_response)
+        self.action_history.append(action_proposal_response)
 
         # Extract and return action
         regex = r"Action:\s*(.+)"
@@ -328,10 +339,14 @@ class LLMPolicy(PlanPolicy):
             # self.done = True # Malformed response; kill the planner
             return []
         action = match.group(1)
+        if 'typed-sokoban.pddl' in model.env.env._domain_file:
+            action = map_llm_action_sokoban(action)
         stripped_action = action.replace(" ", "") # Remove spaces
         matching_action = list(filter(lambda x: str(x) == stripped_action, valid_actions))
         if len(matching_action) == 0:
             self.action_feedback_msg = f"The action provided, '{action}' was invalid. Please provide a valid action from the list."
+        self.action_no_reasoning_history.append(action_proposal_prompt)
+        self.action_no_reasoning_history.append("Action: " + action)
         return matching_action
     
     def compute_next_states(self, graph, model, current_state, actions):
@@ -359,6 +374,8 @@ class LLMPolicy(PlanPolicy):
         for action in actions:
             model_copy = deepcopy(model)
             next_state, _, _, _, _ = model_copy.env.step(action)
+            self.current_state = next_state
+            self.next_state = next_state
             graph.add_node(hash(next_state), state=next_state, model=model_copy)
             graph.add_edge(hash(current_state), hash(next_state), action=action)
     
@@ -529,28 +546,44 @@ class LLMPolicy(PlanPolicy):
             # TODO(chalo2000): Calculate ground truth with Dijkstra's algorithm
             return self._interactive_select_state(graph, plan, goal)
         
-        # goal_description = self.state_descriptions[hash(goal)]
-        # state_selection_prompt = f"Goal:\n{goal_description}\n"
+        action_history = ""
+        # Collect action history as user prompt
+        for i, chat in enumerate(self.action_no_reasoning_history):
+            role = "User" if i % 2 == 0 else "Assistant"
+            action_history += f"{role}:\n{chat}\n\n" 
+        
         state_selection_prompt = ""
         if self.state_selection_feedback_msg:
             state_selection_prompt += f"Error Feedback: {self.state_selection_feedback_msg}\n"
             self.state_selection_feedback_msg = None
-        tree_json = self._create_tree_json(graph)
-        pretty_tree_json = json.dumps(tree_json, indent=4)
-        state_selection_prompt += f"State Space:\n{pretty_tree_json}\n"
-        state_selection_response, self.chat_history = self._prompt_llm(state_selection_prompt, self.state_selection_prompt_params, history=self.chat_history)
+        # tree_json = self._create_tree_json(graph)
+        # pretty_tree_json = json.dumps(tree_json, indent=4)
+        # state_selection_prompt += f"State Space:\n{pretty_tree_json}\n"
+        model = graph.nodes[hash(self.current_state)]["model"]
+        if self.state_descriptions.get(hash(self.current_state)):
+            state_description = self.state_descriptions[hash(self.current_state)] # Use cached state description
+        else:
+            state_str = model.state_to_str(self.current_state)
+            state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params)
+        state_id = self._get_state_id(graph, self.current_state)
+        state_selection_prompt += f"Current State {state_id}:\n{state_description}\n"
+        user_prompt = f"{action_history}\n{state_selection_prompt}"
+        state_selection_response, self.state_history = self._prompt_llm(user_prompt, self.state_selection_prompt_params, history=self.state_history)
         self._write_to_log(self.log_file, f"NOT INCLUDED IN HISTORY:\n{state_selection_prompt}")
+        self.state_history.append(state_selection_prompt)
         self._write_to_log(self.log_file, f"NOT INCLUDED IN HISTORY:\n{state_selection_response}")
+        self.state_history.append(state_selection_response)
 
         # Extract the selected state ID
         regex = r"Choice:\s*State\s*(\d+)"
         match = re.search(regex, state_selection_response)
         if not match:
-            self.done = True # Malformed response; kill the planner
-            return []
+            self.state_selection_feedback_msg = "The state choice was malformed. Please provide a valid state choice in the form 'Choice: State <state_id>'."
+            return self.current_state
         state_choice = match.group(1)
         selected_node = list(graph.nodes)[int(state_choice)]
         selected_state = graph.nodes[selected_node]["state"]
+        self.current_state = selected_state
     
         # Check if selected state is goal
         model = graph.nodes[selected_node]["model"]
