@@ -346,7 +346,14 @@ class LLMPolicy(PlanPolicy):
         if len(matching_action) == 0:
             self.action_feedback_msg = f"The action provided, '{action}' was invalid. Please provide a valid action from the list."
         self.action_no_reasoning_history.append(action_proposal_prompt)
-        self.action_no_reasoning_history.append("Action: " + action)
+        # Add Reflect reasoning (if any)
+        regex = r"Reflect:\s*(.+)"
+        match = re.search(regex, action_proposal_response)
+        if match:
+            reflect = match.group(1)
+            self.action_no_reasoning_history.append(f"Reflect: {reflect}\nAction: {action}")
+        else:
+            self.action_no_reasoning_history.append(f"Action: {action}")
         return matching_action
     
     def compute_next_states(self, graph, model, current_state, actions):
@@ -548,8 +555,8 @@ class LLMPolicy(PlanPolicy):
         
         action_history = ""
         # Collect action history as user prompt
-        # for i, chat in enumerate(self.action_no_reasoning_history):
-        for i, chat in enumerate(self.action_history):
+        for i, chat in enumerate(self.action_no_reasoning_history):
+        # for i, chat in enumerate(self.action_history):
             role = "User" if i % 2 == 0 else "Assistant"
             action_history += f"{role}:\n{chat}\n\n" 
         
