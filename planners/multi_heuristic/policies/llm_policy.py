@@ -64,6 +64,10 @@ class LLMPolicy(PlanPolicy):
         self.next_state = None
         self.state_history = []
         self.action_no_reasoning_history = []
+        self.reflections = []
+        self.current_states = []
+        self.actions = []
+        self.next_states = []
 
         # Planner params
         self.cheap = kwargs["planner"].get("cheap", True)
@@ -295,6 +299,7 @@ class LLMPolicy(PlanPolicy):
         else:
             state_str = model.state_to_str(state)
             state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params)
+            self.state_descriptions[hash(state)] = state_description
         state_id = self._get_state_id(graph, state)
         intervention_msg = "" if self.current_state == self.next_state else " (Intervention)"
 
@@ -326,8 +331,10 @@ class LLMPolicy(PlanPolicy):
         action_proposal_response, self.action_history = self._prompt_llm(action_proposal_prompt, self.action_proposal_prompt_params, history=self.action_history)
         
         # Write to log and append to chat history
+        self._write_to_log(self.log_file, "ACTION PROPOSAL PROMPT\n" + "-"*20)
         self._write_to_log(self.log_file, action_proposal_prompt)
         self.action_history.append(action_proposal_prompt)
+        self._write_to_log(self.log_file, "ACTION PROPOSAL RESPONSE\n" + "-"*20)
         self._write_to_log(self.log_file, action_proposal_response)
         self.action_history.append(action_proposal_response)
 
@@ -346,14 +353,19 @@ class LLMPolicy(PlanPolicy):
         if len(matching_action) == 0:
             self.action_feedback_msg = f"The action provided, '{action}' was invalid. Please provide a valid action from the list."
         self.action_no_reasoning_history.append(action_proposal_prompt)
+        self.current_states.append(state)
+        self.actions.append(action)
+
         # Add Reflect reasoning (if any)
         regex = r"Reflect:\s*(.+)"
         match = re.search(regex, action_proposal_response)
         if match:
             reflect = match.group(1)
             self.action_no_reasoning_history.append(f"Reflect: {reflect}\nAction: {action}")
+            self.reflections.append(reflect)
         else:
             self.action_no_reasoning_history.append(f"Action: {action}")
+            self.reflections.append("No reflection")
         return matching_action
     
     def compute_next_states(self, graph, model, current_state, actions):
@@ -383,6 +395,7 @@ class LLMPolicy(PlanPolicy):
             next_state, _, _, _, _ = model_copy.env.step(action)
             self.current_state = next_state
             self.next_state = next_state
+            self.next_states.append(next_state)
             graph.add_node(hash(next_state), state=next_state, model=model_copy)
             graph.add_edge(hash(current_state), hash(next_state), action=action)
     
@@ -554,11 +567,30 @@ class LLMPolicy(PlanPolicy):
             return self._interactive_select_state(graph, plan, goal)
         
         action_history = ""
+        # Generate state description list
+        
+        for state_hash, description in self.state_descriptions.items():
+            state = graph.nodes[state_hash]["state"]
+            model = graph.nodes[state_hash]["model"]
+            state_id = self._get_state_id(graph, state)
+            action_history += f"State {state_id}:\n{description}\n"
+            valid_actions = model.get_valid_actions(state)
+            valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
+            action_history += f"Valid Actions:\n{valid_actions_str}\n\n"
+
+            
+        
+        # Generate state transitions (reflection, curr_state, action, next_state)
+        action_history += "State Transitions:\n"
+        for reflection, curr_state, action, next_state in zip(self.reflections, self.current_states, self.actions, self.next_states):
+            curr_state_id = self._get_state_id(graph, curr_state)
+            next_state_id = self._get_state_id(graph, next_state)
+            action_history += f"Reflection: {reflection} | State {curr_state_id} -> {action} -> State {next_state_id}\n"
         # Collect action history as user prompt
-        for i, chat in enumerate(self.action_no_reasoning_history):
-        # for i, chat in enumerate(self.action_history):
-            role = "User" if i % 2 == 0 else "Assistant"
-            action_history += f"{role}:\n{chat}\n\n" 
+        # for i, chat in enumerate(self.action_no_reasoning_history):
+        # # for i, chat in enumerate(self.action_history):
+        #     role = "User" if i % 2 == 0 else "Assistant"
+        #     action_history += f"{role}:\n{chat}\n\n"
         
         state_selection_prompt = ""
         if self.state_selection_feedback_msg:
@@ -573,13 +605,22 @@ class LLMPolicy(PlanPolicy):
         else:
             state_str = model.state_to_str(self.current_state)
             state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params)
+            self.state_descriptions[hash(self.current_state)] = state_description
         state_id = self._get_state_id(graph, self.current_state)
         state_selection_prompt += f"Current State {state_id}:\n{state_description}\n"
+        
+        # Goal description
+        goal_description = model.goal_to_str(self.current_state, plan) # Plan is the goal
+        pretty_goal_description = json.dumps(goal_description, indent=4)
+        
+        state_selection_prompt += f"Goal Tracker:\n{pretty_goal_description}\n"
         user_prompt = f"{action_history}\n{state_selection_prompt}"
         state_selection_response, self.state_history = self._prompt_llm(user_prompt, self.state_selection_prompt_params, history=self.state_history)
-        self._write_to_log(self.log_file, f"NOT INCLUDED IN HISTORY:\n{state_selection_prompt}")
+        self._write_to_log(self.log_file, "STATE SELECTION PROMPT\n" + "-"*20)
+        self._write_to_log(self.log_file, user_prompt)
         self.state_history.append(state_selection_prompt)
-        self._write_to_log(self.log_file, f"NOT INCLUDED IN HISTORY:\n{state_selection_response}")
+        self._write_to_log(self.log_file, "STATE SELECTION RESPONSE\n" + "-"*20)
+        self._write_to_log(self.log_file, state_selection_response)
         self.state_history.append(state_selection_response)
 
         # Extract the selected state ID
