@@ -566,10 +566,21 @@ class LLMPolicy(PlanPolicy):
             # TODO(chalo2000): Calculate ground truth with Dijkstra's algorithm
             return self._interactive_select_state(graph, plan, goal)
         
+        # Save newest state
+        model = graph.nodes[hash(self.current_state)]["model"]
+        if self.state_descriptions.get(hash(self.current_state)):
+            state_description = self.state_descriptions[hash(self.current_state)] # Use cached state description
+        else:
+            state_str = model.state_to_str(self.current_state)
+            state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params)
+            self.state_descriptions[hash(self.current_state)] = state_description
+        
         action_history = ""
         # Generate state description list
         
         for state_hash, description in self.state_descriptions.items():
+            if state_hash == hash(goal):
+                continue
             state = graph.nodes[state_hash]["state"]
             model = graph.nodes[state_hash]["model"]
             state_id = self._get_state_id(graph, state)
@@ -585,7 +596,9 @@ class LLMPolicy(PlanPolicy):
         for reflection, curr_state, action, next_state in zip(self.reflections, self.current_states, self.actions, self.next_states):
             curr_state_id = self._get_state_id(graph, curr_state)
             next_state_id = self._get_state_id(graph, next_state)
-            action_history += f"Reflection: {reflection} | State {curr_state_id} -> {action} -> State {next_state_id}\n"
+            # action_history += f"Reflection: {reflection} | State {curr_state_id} -> {action} -> State {next_state_id}\n"
+            action_history += f"State {curr_state_id} -> {action} -> State {next_state_id}\n"
+
         # Collect action history as user prompt
         # for i, chat in enumerate(self.action_no_reasoning_history):
         # # for i, chat in enumerate(self.action_history):
@@ -596,24 +609,20 @@ class LLMPolicy(PlanPolicy):
         if self.state_selection_feedback_msg:
             state_selection_prompt += f"Error Feedback: {self.state_selection_feedback_msg}\n"
             self.state_selection_feedback_msg = None
-        # tree_json = self._create_tree_json(graph)
-        # pretty_tree_json = json.dumps(tree_json, indent=4)
-        # state_selection_prompt += f"State Space:\n{pretty_tree_json}\n"
-        model = graph.nodes[hash(self.current_state)]["model"]
-        if self.state_descriptions.get(hash(self.current_state)):
-            state_description = self.state_descriptions[hash(self.current_state)] # Use cached state description
+        
+        # Goal description # TODO(chalo2000): PDDL Specific
+        if self.state_descriptions.get(hash(goal)):
+            goal_description = self.state_descriptions[hash(goal)]
         else:
-            state_str = model.state_to_str(self.current_state)
-            state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params)
-            self.state_descriptions[hash(self.current_state)] = state_description
-        state_id = self._get_state_id(graph, self.current_state)
-        state_selection_prompt += f"Current State {state_id}:\n{state_description}\n"
+            str_literals = [str(literal) for literal in goal.literals]
+            goal_str = f"Goal: {', '.join(str_literals)}"
+            goal_description, _ = self._prompt_llm(goal_str, self.state_translation_prompt_params)
+            self.state_descriptions[hash(goal)] = goal_description
+
+        # goal_description = model.goal_to_str(self.current_state, plan) # Plan is the goal
+        # pretty_goal_description = json.dumps(goal_description, indent=4)
         
-        # Goal description
-        goal_description = model.goal_to_str(self.current_state, plan) # Plan is the goal
-        pretty_goal_description = json.dumps(goal_description, indent=4)
-        
-        state_selection_prompt += f"Goal Tracker:\n{pretty_goal_description}\n"
+        state_selection_prompt += f"Goal:\n{goal_description}\n"
         user_prompt = f"{action_history}\n{state_selection_prompt}"
         state_selection_response, self.state_history = self._prompt_llm(user_prompt, self.state_selection_prompt_params, history=self.state_history)
         self._write_to_log(self.log_file, "STATE SELECTION PROMPT\n" + "-"*20)
