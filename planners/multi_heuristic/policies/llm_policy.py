@@ -548,7 +548,8 @@ class LLMPolicy(PlanPolicy):
         
         action_history = ""
         # Collect action history as user prompt
-        for i, chat in enumerate(self.action_no_reasoning_history):
+        # for i, chat in enumerate(self.action_no_reasoning_history):
+        for i, chat in enumerate(self.action_history):
             role = "User" if i % 2 == 0 else "Assistant"
             action_history += f"{role}:\n{chat}\n\n" 
         
