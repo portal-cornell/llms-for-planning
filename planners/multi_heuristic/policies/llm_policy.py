@@ -239,7 +239,7 @@ class LLMPolicy(PlanPolicy):
         for i, node in enumerate(graph.nodes):
             if graph.nodes[node]["state"] == state:
                 return i
-        assert False, "State not found in graph"
+        assert False, f"State {state} not found in graph"
     
     def _actions_to_propose(self, graph, model, state):
         """Returns the actions to propose to reach the goal.
@@ -306,7 +306,7 @@ class LLMPolicy(PlanPolicy):
         # Get valid actions from model
         valid_actions = model.get_valid_actions(state) # self._actions_to_propose(graph, model, state)
         if len(valid_actions) == 0:
-            self.state_selection_feedback_msg = f"There are no valid actions left to propose at State {state_id}. Please select a new state."
+            self.state_selection_feedback_msg = f"There are no valid actions left to propose at State {state_id}. Please select a new state.\n"
             return []
         valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
 
@@ -317,7 +317,7 @@ class LLMPolicy(PlanPolicy):
             self.action_feedback_msg = ""
         action_proposal_prompt +=  f"Goal Tracker:\n{pretty_goal_description}\n"
         action_proposal_prompt += f"Current State {state_id}{intervention_msg}:\n{state_description}\n"
-        action_proposal_prompt += f"Valid Actions:\n{valid_actions_str}\n"
+        # action_proposal_prompt += f"Valid Actions:\n{valid_actions_str}\n"
         
         # if len(valid_actions) == 1:
         #     self._write_to_log(self.log_file, action_proposal_prompt)
@@ -342,7 +342,7 @@ class LLMPolicy(PlanPolicy):
         regex = r"Action:\s*(.+)"
         match = re.search(regex, action_proposal_response)
         if not match:
-            self.action_feedback_msg = "The action was malformed. Please provide a valid action in the form 'Action: <action>'.\n"
+            self.action_feedback_msg = "The action was malformed. Please provide a valid action in the form 'Action: <action>'."
             # self.done = True # Malformed response; kill the planner
             return []
         action = match.group(1)
@@ -366,6 +366,13 @@ class LLMPolicy(PlanPolicy):
         else:
             self.action_no_reasoning_history.append(f"Action: {action}")
             self.reflections.append("No reflection")
+        
+        # Extract feedback
+        regex = r"Feedback:\s*(.+)"
+        match = re.search(regex, action_proposal_response)
+        if match:
+            feedback = match.group(1)
+            self.state_selection_feedback_msg += f"\nAction Proposal Feedback: {feedback}"
         return matching_action
     
     def compute_next_states(self, graph, model, current_state, actions):
@@ -388,6 +395,7 @@ class LLMPolicy(PlanPolicy):
             # invalid_msg = "The action provided was invalid. Please provide a valid action from the list."
             # self._write_to_log(self.log_file, invalid_msg)
             # self.chat_history.append(invalid_msg)
+            self.next_states.append('X')
             return # No valid action found
         
         for action in actions:
@@ -587,7 +595,7 @@ class LLMPolicy(PlanPolicy):
             action_history += f"State {state_id}:\n{description}\n"
             valid_actions = model.get_valid_actions(state)
             valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
-            action_history += f"Valid Actions:\n{valid_actions_str}\n\n"
+            # action_history += f"Valid Actions:\n{valid_actions_str}\n\n"
 
             
         
@@ -595,9 +603,12 @@ class LLMPolicy(PlanPolicy):
         action_history += "State Transitions:\n"
         for reflection, curr_state, action, next_state in zip(self.reflections, self.current_states, self.actions, self.next_states):
             curr_state_id = self._get_state_id(graph, curr_state)
-            next_state_id = self._get_state_id(graph, next_state)
-            # action_history += f"Reflection: {reflection} | State {curr_state_id} -> {action} -> State {next_state_id}\n"
-            action_history += f"State {curr_state_id} -> {action} -> State {next_state_id}\n"
+            if next_state == 'X':
+                action_history += f"State {curr_state_id} -> {action} -> X\n"
+            else:
+                next_state_id = self._get_state_id(graph, next_state)
+                # action_history += f"Reflection: {reflection} | State {curr_state_id} -> {action} -> State {next_state_id}\n"
+                action_history += f"State {curr_state_id} -> {action} -> State {next_state_id}\n"
 
         # Collect action history as user prompt
         # for i, chat in enumerate(self.action_no_reasoning_history):
@@ -608,7 +619,7 @@ class LLMPolicy(PlanPolicy):
         state_selection_prompt = ""
         if self.state_selection_feedback_msg:
             state_selection_prompt += f"Error Feedback: {self.state_selection_feedback_msg}\n"
-            self.state_selection_feedback_msg = None
+            self.state_selection_feedback_msg = ""
         
         # Goal description # TODO(chalo2000): PDDL Specific
         if self.state_descriptions.get(hash(goal)):
@@ -636,7 +647,7 @@ class LLMPolicy(PlanPolicy):
         regex = r"Choice:\s*State\s*(\d+)"
         match = re.search(regex, state_selection_response)
         if not match:
-            self.state_selection_feedback_msg = "The state choice was malformed. Please provide a valid state choice in the form 'Choice: State <state_id>'."
+            self.state_selection_feedback_msg = "The state choice was malformed. Please provide a valid state choice in the form 'Choice: State <state_id>'.\n"
             return self.current_state
         state_choice = match.group(1)
         selected_node = list(graph.nodes)[int(state_choice)]
@@ -644,13 +655,12 @@ class LLMPolicy(PlanPolicy):
         self.current_state = selected_state
 
         # Extract feedback
-        if self.current_state != self.next_state:
-            # State intervention
-            regex = r"Feedback:\s*(.+)"
-            match = re.search(regex, state_selection_response)
-            if match:
-                feedback = match.group(1)
-                self.action_feedback_msg += f"\nState Selector Feedback: {feedback}"
+        # if self.current_state != self.next_state:
+        regex = r"Feedback:\s*(.+)"
+        match = re.search(regex, state_selection_response)
+        if match:
+            feedback = match.group(1)
+            self.action_feedback_msg += f"\nState Selector Feedback: {feedback}"
     
         # Check if selected state is goal
         model = graph.nodes[selected_node]["model"]

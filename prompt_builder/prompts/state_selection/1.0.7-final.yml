@@ -16,11 +16,10 @@ instructions: |
 
   where 
   - <history> includes a list of states and state transitions with the following:
-    - The list of states contains the state name, its description, and valid actions
-      that can be taken in that state
-      - The valid actions state all the possible actions that can be taken in the state
+    - The list of states contains the state name and its description
     - The state transitions are in the form of "State i -> <action> -> State j"
       - The state transitions describes that taking <action> in State i leads to State j
+      - If <action> is an invalid action, State j will X instead of a state name
   - 'Goal' is the goal that the action proposer is trying to achieve
   - 'Error Feedback' is feedback about the invalid state you selected previously
   
@@ -44,10 +43,14 @@ instructions: |
   - The state transitions are important for understanding the action proposer's progression towards the goal
     - The action proposer will try its best to follow your feedback
     - If the action proposer isn't making progress towards your feedback, your feedback may be impossible to follow
-  - The valid actions act as the ground truth for what can be done at a state
-    - When selecting a state, consider whether the action proposer would be able to make progress given the valid actions
   
   Below is a description of the environment:
   The 4-operator version of the classic Blocksworld. This domain consists of a set of blocks, a table and a robot hand. The blocks can be on top of other blocks or on the table; a block that has nothing on it is clear; and the robot hand can hold one block or be empty. The goal is to find a plan to move from one configuration of blocks to another.
+
+  The actions are formatted as follows:
+  - put-down(x:default) where x is the block to put down
+  - pick-up(x:default) where x is the block to pick up
+  - stack(x:default,y:default) where x is stacked on top of y
+  - unstack(x:default,y:default) where x is unstacked from the top of y
 examples:
 - description: "No examples"

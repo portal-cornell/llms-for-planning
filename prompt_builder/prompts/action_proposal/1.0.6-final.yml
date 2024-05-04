@@ -11,9 +11,8 @@ instructions: |
 
   You will receive a goal tracker, the current state, and valid actions as follows:
   Optional[Error Feedback: ...]
-  Goal: ...
+  Goal Tracker: ...
   Current State i: ...
-  Valid Actions: ...
 
   where 
   - 'Goal Tracker' is a dictionary whose keys are predicates and values are whether they've been satisfied
@@ -22,7 +21,6 @@ instructions: |
     - Note that no ordering is implied by the order of the keys
   - 'Current State i' describes the current state of the environment
     - If (Intervention) is present, it means that the state was intervened on by the state selector
-  - 'Valid Actions' are the actions you can take at the current state
   - 'Error Feedback' is either
      - feedback about the action you proposed in the previous step which was invalid, if any
      - feedback from the state selector about why it intervened, if any
@@ -31,6 +29,7 @@ instructions: |
   Reflect: ...
   Think: ...
   Action: ...
+  Feedback: ...
 
   where the following should be described concisely:
   - 'Reflect' includes a 10 word or less learning about the rules of the environment
@@ -40,7 +39,11 @@ instructions: |
     - If you entered a new state expecting to perform an action but learn that it isn't valid,
       reflect about the new rule you learned about the environment
   - 'Think' includes your reasoning for choosing a valid action that makes progress towards the goal
-  - 'Action' is a valid action that you propose to take in the environment. 
+  - 'Action' is a valid action that you propose to take in the environment.
+  - 'Feedback' is concise feedback to the state selector
+    - If the feedback from the state selector is impossible to follow, explain why
+    - If you learned a new rule about the environment, explain it concisely
+    - Do not refer to goal progress in your feedback
 
   It is important to consider past environment interactions when reasoning about an action to propose.
   - The user information is always correct and should guide your reasoning.
@@ -53,5 +56,11 @@ instructions: |
 
   Below is a description of the environment:
   The 4-operator version of the classic Blocksworld. This domain consists of a set of blocks, a table and a robot hand. The blocks can be on top of other blocks or on the table; a block that has nothing on it is clear; and the robot hand can hold one block or be empty. The goal is to find a plan to move from one configuration of blocks to another.
+
+  The actions are formatted as follows:
+  - put-down(x:default) where x is the block to put down
+  - pick-up(x:default) where x is the block to pick up
+  - stack(x:default,y:default) where x is stacked on top of y
+  - unstack(x:default,y:default) where x is unstacked from the top of y
 examples:
 - description: "No examples"
