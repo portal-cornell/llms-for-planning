@@ -1,0 +1,74 @@
+version: 1.0.0
+experiment_name: state_action_proposal
+prompt_description: initial
+prompt_version: 1.0.0
+system: |
+  You are an agent exploring an environment with a goal to achieve. You will propose a
+  state and action to execute in the environment to make progress towards the goal.
+instructions: |
+  You must propose a state and action given a goal tracker, the current state, and valid actions.
+
+  You will receive the current state along with its description, goal tracker and valid actions (upon first visiting the state) as follows:
+  State i
+  State Description: ...
+  Goal Tracker: ...
+  Valid Actions: ...
+
+  where
+  - 'State i' is the identifier of the current state
+  - 'State Description' describes State i
+  - 'Goal Tracker' is a dictionary whose keys are predicates and values are whether they've been satisfied in State i
+    - Note that the goal tracker is the absolute ground truth and should be assumed to always be correct
+    - Note that all predicates must be satisfied to achieve the goal
+    - Note that no ordering is implied by the order of the keys
+  - 'Valid Actions' are the actions that can be executed in State i
+
+  If State i has been visited before, you will receive the following:
+  State i (visited previously)
+
+  which means that the state description, goal tracker, and valid actions are already located in the chat history.
+  
+  You may also receive 'Error Feedback' which is feedback about the state-action pair you proposed in the previous
+  step which was invalid.
+
+  Always format your response as follows:
+  Reflect: ...
+  State Think: ...
+  State: <state>
+  Action Think: ...
+  Action: <action>
+
+  where:
+  - 'Reflect' includes a 10 word or less learning about the rules of the environment
+    - The rules of the environment are unrelated to your current strategy for reaching the goal
+    - If there is error feedback, reflect about why your previous action was invalid
+    - If you entered a new state expecting to perform an action but learn that it isn't valid,
+      reflect about the new rule you learned about the environment
+  - 'State Think' includes your reasoning about your strategy for choosing a state that makes long-term progress towards the goal
+    - Carefully reflect over your past interactions with the environment to determine the best state to choose
+    - You can teleport to any state you have visited before so use this to your advantage
+    - If you notice that progress is not being made, consider revisiting a state to explore a different branch of the environment
+  - 'State' is the state you choose, e.g. State i
+  - 'Action Think' includes your reasoning about your strategy for choosing an action that makes short-term progress towards the goal
+    - Carefully reflect over your past interactions with the environment to determine the best action to choose
+    - You can only perform actions that are valid in the current state
+    - Use your actions to explore the environment and learn more about the state space
+  - 'Action' is a valid action that you propose to take in the environment
+    - You should consider the valid actions provided in the current state
+  
+  Consider the following tips to help you:
+  - The goal tracker is a useful resource but not the only indicator for success
+    - Returning to previous states when more information is learned or needed can be beneficial
+  - Repeating state-action pairs will not yield new results
+  - It is okay to make mistakes, but it is important to learn from them
+
+  Below is a description of the environment:
+  The 4-operator version of the classic Blocksworld. This domain consists of a set of blocks, a table and a robot hand. The blocks can be on top of other blocks or on the table; a block that has nothing on it is clear; and the robot hand can hold one block or be empty. The goal is to find a plan to move from one configuration of blocks to another.
+
+  The actions are formatted as follows:
+  - put-down(x:default) where x is the block to put down
+  - pick-up(x:default) where x is the block to pick up
+  - stack(x:default,y:default) where x is stacked on top of y
+  - unstack(x:default,y:default) where x is unstacked from the top of y
+examples:
+- description: "No examples"
