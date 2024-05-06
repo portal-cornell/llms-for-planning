@@ -32,6 +32,7 @@ class BacktrackPolicy(PlanPolicy):
         if self.log_file:
             os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
         self.state_descriptions = {} # Cache for state descriptions
+        self.goal_description = "" # Cache for goal description
 
         # State translation
         self.state_translation_prompt_params = kwargs["llm"]["prompts"].get("state_translation_prompt", {})
@@ -117,6 +118,7 @@ class BacktrackPolicy(PlanPolicy):
             None
                 This policy does not generate a plan.
         """
+        self.current_state = initial_state
         return goal
     
     def _get_state_id(self, graph, state):
@@ -182,27 +184,34 @@ class BacktrackPolicy(PlanPolicy):
         
         # State i
         state_id = self._get_state_id(graph, state)
-        state_action_proposal_prompt += f"State {state_id}\n"
+        did_visit = "(visited previously)" if self.state_descriptions.get(hash(state)) else ""
+        state_action_proposal_prompt += f"State {state_id} {did_visit}\n"
 
-        # Get state descriptors
-        if not self.state_descriptions.get(hash(state)):
-            # State Description: ...
+
+        # State Description: ...
+        if self.state_descriptions.get(hash(state)):
+            state_description = self.state_descriptions[hash(state)]
+        else:
             state_str = model.state_to_str(state)
             state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params)
             self.state_descriptions[hash(state)] = state_description
 
-            # Goal Tracker: ...
-            goal_description = model.goal_to_str(state, plan) # Plan is the goal
-            pretty_goal_description = json.dumps(goal_description, indent=4)
+        # Goal: ...
+        # if self.goal_description:
+        #     goal_description = self.goal_description
+        # else:
+        #     goal_description = model.goal_to_str(state, plan) # Plan is the goal
+        #     goal_description, _ = self._prompt_llm(goal_description, self.state_translation_prompt_params)
+        #     self.goal_description = goal_description
+        goal_description = model.goal_to_str(state, plan) # Plan is the goal
 
-            # Valid Actions: ...
-            valid_actions = model.get_valid_actions(state)
-            valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
+        # Valid Actions: ...
+        valid_actions = model.get_valid_actions(state)
+        valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
 
-            # Only add the first time
-            state_action_proposal_prompt += f"State Description:\n{state_description}\n"
-            state_action_proposal_prompt += f"Goal Tracker:\n{pretty_goal_description}\n"
-            state_action_proposal_prompt += f"Valid Actions:\n{valid_actions_str}\n"
+        state_action_proposal_prompt += f"State Description:\n{state_description}\n"
+        state_action_proposal_prompt += f"Goal:\n{goal_description}\n"
+        state_action_proposal_prompt += f"Valid Actions:\n{valid_actions_str}\n"
 
         state_action_proposal_response, self.chat_history = self._prompt_llm(state_action_proposal_prompt, self.state_action_proposal_prompt_params, history=self.chat_history)
         
@@ -221,7 +230,7 @@ class BacktrackPolicy(PlanPolicy):
             self.state_action_feedback_msg = f"The state was malformed. Please provide a valid state in the form 'State: State <state_id>'."
             return []
         proposed_state_id = state_match.group(1)
-        if not proposed_state_id.isdigit() or int(proposed_state_id) >= len(graph.nodes):
+        if not proposed_state_id.isdigit():# or int(proposed_state_id) >= len(graph.nodes):
             self.state_action_feedback_msg = f"The state ID '{proposed_state_id}' was invalid. Please provide a valid state ID."
             return []
         proposed_node = list(graph.nodes)[int(proposed_state_id)]

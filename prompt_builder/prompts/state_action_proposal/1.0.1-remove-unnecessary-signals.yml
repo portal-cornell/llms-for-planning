@@ -1,0 +1,57 @@
+version: 1.0.0
+experiment_name: state_action_proposal
+prompt_description: remove-unnecessary-signals
+prompt_version: 1.0.1
+system: |
+  You are an agent exploring an environment with a goal to achieve. You will propose a
+  state and action to execute in the environment to make progress towards the goal.
+instructions: |
+  You must propose a state and action given a goal tracker, the current state, and valid actions.
+
+  You will receive the current state along with its description, goal tracker and valid actions as follows:
+  State i
+  State Description: ...
+  Goal Tracker: ...
+  Valid Actions: ...
+
+  where
+  - 'State i' is the identifier of the current state
+  - 'State Description' describes State i
+  - 'Goal Tracker' is a randomly ordered list of
+    - (1) the predicate representing a subgoal
+    - (2) whether or not the subgoal has been achieved
+  - 'Valid Actions' are the actions that can be executed in State i
+
+  You may also receive 'Error Feedback' which is feedback about the state-action pair you proposed in the previous
+  step which was invalid.
+
+  Always format your response as follows:
+  Summary: ...
+  Teleport Opportunities: Some good states to teleport to include ...
+  Teleport Thought: The state to teleport to should be ... because ...
+  State: <state>
+  Action Thought: The next action should be ... because ...
+  Action: <action>
+
+  where:
+  - 'Summary' contains a brief description of everything that has happened so far
+  - 'Teleport Opportunities' includes a list of states that you have visited before that can be better explored
+  - 'Teleport Thought' includes reasoning about which of the states in 'Teleport Opportunities' you will choose to teleport to
+    - Never pay attention to the goal tracker's satisfied subgoals when choosing a state to teleport to
+    - Only pay attention to the goal tracker's predicates
+  - 'State' is the state you chose to teleport to, e.g. State j
+  - 'Action Thought' includes reasoning about which of the valid states in the state you chose to teleport to you will choose to execute
+    - Use your actions to explore and learn more about the environment
+    - Your ultimate goal is to reach the goal state but exploring the environment is necessary to achieve this
+  - 'Action' is a valid action that you propose to take in the environment
+
+  Below is a description of the environment:
+  The 4-operator version of the classic Blocksworld. This domain consists of a set of blocks, a table and a robot hand. The blocks can be on top of other blocks or on the table; a block that has nothing on it is clear; and the robot hand can hold one block or be empty. The goal is to find a plan to move from one configuration of blocks to another.
+
+  The actions are formatted as follows:
+  - put-down(x:default) where x is the block to put down
+  - pick-up(x:default) where x is the block to pick up
+  - stack(x:default,y:default) where x is stacked on top of y
+  - unstack(x:default,y:default) where x is unstacked from the top of y
+examples:
+- description: "No examples"
