@@ -221,27 +221,32 @@ class BacktrackPolicy(PlanPolicy):
         self.chat_history.append(state_action_proposal_prompt)
         self._write_to_log(self.log_file, "STATE-ACTION PROPOSAL RESPONSE\n" + "-"*20)
         self._write_to_log(self.log_file, state_action_proposal_response)
-        self.chat_history.append(state_action_proposal_response)
-
-        # Extract state
+        # self.chat_history.append(state_action_proposal_response)
+        
+        # Extract state and action regexes
         state_regex = r"State:\s*State\s*(\d+)"
         state_match = re.search(state_regex, state_action_proposal_response)
         if not state_match:
             self.state_action_feedback_msg = f"The state was malformed. Please provide a valid state in the form 'State: State <state_id>'."
+            self.chat_history.append(f"Error Feedback: {self.state_action_feedback_msg}\n")
             return []
+        
+        action_regex = r"Action:\s*(.+)"
+        action_match = re.search(action_regex, state_action_proposal_response)
+        if not action_match:
+            self.state_action_feedback_msg = "The action was malformed. Please provide a valid action in the form 'Action: <action>'."
+            self.chat_history.append(f"Error Feedback: {self.state_action_feedback_msg}\n")
+            return []
+        self.chat_history.append(f"State: State {state_match.group(1)}\nAction: {action_match.group(1)}\n")
+        
+        # Extract actual state and action
         proposed_state_id = state_match.group(1)
-        if not proposed_state_id.isdigit():# or int(proposed_state_id) >= len(graph.nodes):
+        if not proposed_state_id.isdigit() or int(proposed_state_id) >= len(graph.nodes):
             self.state_action_feedback_msg = f"The state ID '{proposed_state_id}' was invalid. Please provide a valid state ID."
             return []
         proposed_node = list(graph.nodes)[int(proposed_state_id)]
         proposed_state = graph.nodes[proposed_node]["state"]
 
-        # Extract action
-        action_regex = r"Action:\s*(.+)"
-        action_match = re.search(action_regex, state_action_proposal_response)
-        if not action_match:
-            self.state_action_feedback_msg = "The action was malformed. Please provide a valid action in the form 'Action: <action>'."
-            return []
         proposed_action = action_match.group(1)
         stripped_action = proposed_action.replace(" ", "") # Remove spaces (if any)
         valid_actions = model.get_valid_actions(state)
@@ -249,10 +254,12 @@ class BacktrackPolicy(PlanPolicy):
         if len(matching_action) == 0:
             self.state_action_feedback_msg = f"The action '{proposed_action}' was invalid. Please provide a valid action from the list."
             return []
+        
         state_action_dict = {
             "state": proposed_state,
             "actions": matching_action
         }
+
         return state_action_dict
     
     def compute_next_states(self, graph, model, current_state, actions):
