@@ -254,16 +254,19 @@ class PDDLGymModel(Model):
                 The string representation of the goal.
         """
         # Returns a dictionary whose keys are the goal predicates and values are whether or not they are negated
-        # str_literals = [str(literal) for literal in goal.literals]
-        # return f"Goal: {', '.join(str_literals)}"
+        str_literals = [str(literal) for literal in goal.literals]
+        return f"Goal: {', '.join(str_literals)}"
         # import pdb; pdb.set_trace()
         # goal_dict = goal.as_dict()
         # goal_str = f"Goal: {goal_dict}"
         # return goal_str
-        goal_dict = {}
-        for literal in goal.literals:
-            goal_dict[str(literal)] = literal in state.literals
-        return goal_dict
+        # goal_list = []
+        # for literal in goal.literals:
+        #     goal_satisfied = (str(literal), literal in state.literals)
+        #     goal_list.append(goal_satisfied)
+        # # random.shuffle(goal_list) # Order doesn't matter - shuffling to avoid bias
+        # goal_str = "\n".join([f"- {literal}: {satisfied}" for literal, satisfied in goal_list])
+        return goal_str
     
 def make_pddlgym_model(env_name=None, domain_file=None, instance_dir=None, render_fn_name=None):
     """Returns the model for the PDDLGym environment with the given name.
