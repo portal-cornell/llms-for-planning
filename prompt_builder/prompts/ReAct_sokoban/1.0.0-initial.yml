@@ -1,0 +1,218 @@
+version: 1.0.0
+experiment_name: ReAct_sokoban
+prompt_description: initial
+prompt_version: 1.0.0
+system: |
+  You must take actions in the Sokoban environment to reach the goal as specified.
+instructions: |
+  The Sokoban environment is a grid with walls, a robot, and some boxes. There are
+  destination cells for each box, and the objective is to have the robot push the
+  boxes to their destination cells.
+  
+  All movements are up, down, left, or right, and must stay within the confines
+  of the grid. The grid coordinates are indexed like a Python list (so (0, 0) is
+  the top left, and (1, 1) is the first column and first row). The 2 possible
+  actions are: moving the robot from a cell to an adjacent cell, and having the
+  robot push a box from a cell to an adjacent cell. A robot must be "behind" a box
+  to push it forward (a robot must be to the left of a box to push it
+  to the right, be right to push left, be below to push up, be above to push down).
+
+  The actions are represented as strings in the following way:
+  - move((x, y), (x', y')): move from coordinates (x, y) to (x', y')
+  - push((x, y), (x', y'), "a"): move the robot from coordinates (x, y) to (x', y') while pushing block a
+
+  The grid will be presented as a bitmap that looks something like:
+  00000
+  r10a0
+  0110A
+  00100
+  00111
+
+  Where "r" indicates the robot's location, "a" indicates a box's current location, "A"
+  indicates the goal location for the box, "1" indicates the grid has a wall, and "0"
+  indicates the grid has no wall. Lower case letters, except for "r", indicate current
+  locations of boxes, and their corresponding capital letters indicate their corresponding
+  goal locations.
+
+  The coordinates of the robot, the walls, the boxes, and the boxes' corresponding
+  goals will also be provided.
+  
+  Once the goal is reached, there will be no more boxes displayed (i.e. there will
+  be no lower case letters, except for "r").
+
+examples:
+- description: Initial state and goal description
+- observation: |
+    The initial state is the following:
+    00000
+    r10a0
+    0110A
+    00100
+    00111
+    The robot is at (1, 0)
+    Box "a" is at (1, 3)
+    The goal for box "a" ("A") is at (2, 4)
+    The walls are at (1, 1), (2, 1), (2, 2), (3, 2), (4, 2), (4, 3), (4, 4)
+
+    Your valid actions are:
+    move((1, 0), (0, 0))
+    move((1, 0), (2, 0))
+- response: |
+    Think: The goal state requires moving box "a" one to the right one and down one. I will move the box "a" one to the right, then one down. To get to the immediate left of the box and move it right, I need to first move the robot up to avoid the wall.
+    Action: move((1, 0), (0, 0))
+- description: First observation from the plan
+- observation: |
+    Obs:
+    r0000
+    010a0
+    0110A
+    00100
+    00111
+    The robot is at (0, 0)
+    Box "a" is at (1, 3)
+    The goal for box "a" ("A") is at (2, 4)
+    The walls are at (1, 1), (2, 1), (2, 2), (3, 2), (4, 2), (4, 3), (4, 4)
+
+    Your valid actions are:
+    move((0, 0), (1, 0))
+    move((0, 0), (0, 1))
+- response: |
+    Think: I will continue going towards the immediate left of box "a" by moving the robot right.
+    Action: move((0, 0), (0, 1))
+- description: Still moving to block
+- observation: |
+    Obs:
+    0r000
+    010a0
+    0110A
+    00100
+    00111
+    The robot is at (0, 1)
+    Box "a" is at (1, 3)
+    The goal for box "a" ("A") is at (2, 4)
+    The walls are at (1, 1), (2, 1), (2, 2), (3, 2), (4, 2), (4, 3), (4, 4)
+
+    Your valid actions are:
+    move((0, 1), (0, 2))
+    move((0, 1), (0, 0))
+- response: |
+    Think: I will continue going towards the immediate left of box "a" by moving the robot right.
+    Action: move((0, 1), (0, 2))
+- description: Still moving to block
+- observation: |
+    Obs:
+    00r00
+    010a0
+    0110A
+    00100
+    00111
+    The robot is at (0, 2)
+    Box "a" is at (1, 3)
+    The goal for box "a" ("A") is at (2, 4)
+    The walls are at (1, 1), (2, 1), (2, 2), (3, 2), (4, 2), (4, 3), (4, 4)
+
+    Your valid actions are:
+    move((0, 2), (0, 1))
+    move((0, 2), (0, 3))
+    move((0, 2), (1, 2))
+- response: |
+    Think: I can now move the robot down 1 to get to the immediate right of box "a" so the robot can push the box in the following step.
+    Action: move((0, 2), (1, 2))
+- description: Can push block
+- observation: |
+    Obs:
+    00000
+    01ra0
+    0110A
+    00100
+    00111
+    The robot is at (1, 2)
+    Box "a" is at (1, 3)
+    The goal for box "a" ("A") is at (2, 4)
+    The walls are at (1, 1), (2, 1), (2, 2), (3, 2), (4, 2), (4, 3), (4, 4)
+
+    Your valid actions are:
+    push((1, 2), (1, 3), "a")
+    move((1, 2), (0, 2))
+- response: |
+    Think: I can now have the robot push box "a" 1 to the right since it is 1 to the left of box "a".
+    Action: push((1, 2), (1, 3), "a")
+- description: Moving around to push block again
+- observation: |
+    Obs:
+    00000
+    010ra
+    0110A
+    00100
+    00111
+    The robot is at (1, 3)
+    Box "a" is at (1, 4)
+    The goal for box "a" ("A") is at (2, 4)
+    The walls are at (1, 1), (2, 1), (2, 2), (3, 2), (4, 2), (4, 3), (4, 4)
+
+    Your valid actions are:
+    move((1, 3), (2, 3))
+    move((1, 3), (0, 3))
+    move((1, 3), (1, 2))
+- response: |
+    Think: Now I need to move the robot on top of box "a" to push it down to reach the goal at "A". I'll move around the box by first going up.
+    Action: move((1, 3), (0, 3))
+- description: Moving around to push block again
+- observation: |
+    Obs:
+    000r0
+    0100a
+    0110A
+    00100
+    00111
+    The robot is at (0, 3)
+    Box "a" is at (1, 4)
+    The goal for box "a" ("A") is at (2, 4)
+    The walls are at (1, 1), (2, 1), (2, 2), (3, 2), (4, 2), (4, 3), (4, 4)
+
+    Your valid actions are:
+    move((0, 3), (0, 4))
+    move((0, 3), (0, 2))
+    move((0, 3), (1, 3))
+- response: |
+    Think: I can get the robot on the cell above box "a" by moving right.
+    Action: move((0, 3), (0, 4))
+- description: Moving around to push block again
+- observation: |
+    Obs:
+    0000r
+    0100a
+    0110A
+    00100
+    00111
+    The robot is at (0, 4)
+    Box "a" is at (1, 4)
+    The goal for box "a" ("A") is at (2, 4)
+    The walls are at (1, 1), (2, 1), (2, 2), (3, 2), (4, 2), (4, 3), (4, 4)
+
+    Your valid actions are:
+    push((0, 4), (1, 4), "a")
+    move((0, 4), (0, 3))
+- response: |
+    Think: I can now have the robot push box "a" 1 down to reach the goal at "A", since the robot is 1 above box "a".
+    Action: push((0, 4), (1, 4), "a")
+- description: Finished
+- observation: |
+    Obs:
+    00000
+    0100r
+    0110A
+    00100
+    00111
+    The robot is at (1, 4)
+    Box "a" is at (2, 4)
+    The goal for box "a" ("A") is at (2, 4)
+    The walls are at (1, 1), (2, 1), (2, 2), (3, 2), (4, 2), (4, 3), (4, 4)
+
+    Your valid actions are:
+    move((1, 4), (1, 3))
+    move((1, 4), (2, 4))
+    move((1, 4), (0, 4))
+- response: |
+    Think: There are no more lower case letters, except for "r", so we've reached the goal.
+    Action: Finish

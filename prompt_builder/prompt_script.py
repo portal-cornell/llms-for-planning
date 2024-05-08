@@ -2,7 +2,7 @@
 This script queries the LLM with an existing prompt and a user provided prompt.
 
 To run this script on an example, run the following command in the terminal:
-    python prompt_script.py \
+    python3 prompt_script.py \
         --user_prompt "Please calculate the following: (100 + 12) * 24 / 2^6" \
         --experiment_name prompt_script_test \
         --prompt_description calculator \

@@ -215,9 +215,9 @@ def run_planner(cfg: DictConfig) -> None:
         # Get optimal plan
         optimal_plan = pddlgym_utils.get_optimal_plan(model.env.domain, initial_state)
 
-        graph_file = kwargs["planner"].get("graph_file")
-        if graph_file:
-            visualize_graph(graph, graph_file)
+        # graph_file = kwargs["planner"].get("graph_file")
+        # if graph_file:
+        #     visualize_graph(graph, graph_file)
         
         log_file = kwargs["planner"].get("log_file")
         if log_file:

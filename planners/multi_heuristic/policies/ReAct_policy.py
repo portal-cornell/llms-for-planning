@@ -9,8 +9,12 @@ The ReAct prompt additionally
 import os
 import openai
 import re
+import transformers
+import torch
+
 from copy import deepcopy
 from .policy import PlanPolicy
+from .utils import convert_states_to_bitmap_sokoban, map_llm_action_sokoban, map_pddl_to_llm_actions_sokoban
 
 class ReActPolicy(PlanPolicy):
     """A plan policy that queries an LLM to think and act in an environment while receiving feedback."""
@@ -37,9 +41,23 @@ class ReActPolicy(PlanPolicy):
         
         # State translation
         self.state_translation_prompt_params = kwargs["llm"]["prompts"].get("state_translation_prompt", {})
+        if self.state_translation_prompt_params['model'] == "meta-llama/Meta-Llama-3-8B-Instruct":
+            self.state_translation_prompt_params['model'] = transformers.pipeline(
+                "text-generation",
+                model="meta-llama/Meta-Llama-3-8B-Instruct",
+                model_kwargs={"torch_dtype": torch.bfloat16},
+                device_map="auto",
+            )
 
         # ReAct prompt
         self.action_proposal_prompt_params = kwargs["llm"]["prompts"].get("action_proposal_prompt", {})
+        if self.action_proposal_prompt_params['model'] == "meta-llama/Meta-Llama-3-8B-Instruct":
+            self.action_proposal_prompt_params['model'] = transformers.pipeline(
+                "text-generation",
+                model="meta-llama/Meta-Llama-3-8B-Instruct",
+                model_kwargs={"torch_dtype": torch.bfloat16},
+                device_map="auto",
+            )
         
         self.chat_history = []
         self.truncated_chat_history = [] # Current chat history that fits within the context length
@@ -144,16 +162,19 @@ class ReActPolicy(PlanPolicy):
         Side Effects:
             - Prompts the LLM to describe the initial state and goal state.
         """
-        # Generate initial state description
-        initial_state_str = model.state_to_str(initial_state)
-        initial_state_description, _ = self._prompt_llm(initial_state_str, self.state_translation_prompt_params)
+        if 'typed-sokoban.pddl' in model.env.env._domain_file:
+            starter_message = convert_states_to_bitmap_sokoban(initial_state)
+        else:
+            # Generate initial state description
+            initial_state_str = model.state_to_str(initial_state)
+            initial_state_description, _ = self._prompt_llm(initial_state_str, self.state_translation_prompt_params)
 
-        # Generate goal state description
-        goal_str = model.goal_to_str(goal)
-        goal_description, _ = self._prompt_llm(goal_str, self.state_translation_prompt_params)
+            # Generate goal state description
+            goal_str = model.goal_to_str(goal)
+            goal_description, _ = self._prompt_llm(goal_str, self.state_translation_prompt_params)
 
-        # Generate starter message
-        starter_message = self._starter_message_template(initial_state_description, goal_description)
+            # Generate starter message
+            starter_message = self._starter_message_template(initial_state_description, goal_description)
 
         self.next_state = initial_state # Save initial state in case of invalid action at beginning
         return starter_message
@@ -161,7 +182,15 @@ class ReActPolicy(PlanPolicy):
     def _observation_message_template(self, observation):
         return f"Obs:\n{observation}"
     
-    def propose_actions(self, graph, model, state, plan):
+    def format_valid_actions(self, model, state):
+        if 'typed-sokoban.pddl' in model.env.env._domain_file:
+            next_actions = map_pddl_to_llm_actions_sokoban(model.get_valid_actions(state))
+        else:
+            next_actions = [str(a) for a in model.get_valid_actions(state)]
+        
+        return next_actions
+    
+    def propose_actions(self, graph, model, state, plan, provide_actions=False):
         """Proposes an action(s) to take in order to reach the goal.
         
         Parameters:
@@ -190,6 +219,11 @@ class ReActPolicy(PlanPolicy):
             assert hash(state) in graph.nodes, "The current state is not in the graph."
             observation = graph.nodes[hash(state)]["observation"]
             user_prompt = self._observation_message_template(observation)
+        
+        if provide_actions:
+            newline = '\n'
+            user_prompt += f"\nYour valid actions are:\n{newline.join(self.format_valid_actions(model, state))}"
+        
         self.previous_state = state
 
         # Get THINK and ACTION from LLM
@@ -212,6 +246,8 @@ class ReActPolicy(PlanPolicy):
         action = match.group(1)
         action = action.replace(" ", "") # Remove spaces
         valid_actions = model.get_valid_actions(state) + [ReActPolicy.FINISH_ACTION]
+        if 'typed-sokoban.pddl' in model.env.env._domain_file:
+            action = map_llm_action_sokoban(action)
         matching_action = list(filter(lambda x: str(x) == action, valid_actions))
         return matching_action
     
@@ -247,7 +283,10 @@ class ReActPolicy(PlanPolicy):
         
         # Format ReAct observation
         next_state_str = model.state_to_str(next_state)
-        next_state_description, _ = self._prompt_llm(next_state_str, self.state_translation_prompt_params)
+        if 'typed-sokoban.pddl' in model.env.env._domain_file:
+            next_state_description = convert_states_to_bitmap_sokoban(next_state)
+        else:
+            next_state_description, _ = self._prompt_llm(next_state_str, self.state_translation_prompt_params)
         
         # Update graph with next state and action
         graph.add_node(hash(next_state), state=next_state, model=model_copy, observation=next_state_description)
