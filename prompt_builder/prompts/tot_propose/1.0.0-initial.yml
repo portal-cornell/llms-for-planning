@@ -1,0 +1,47 @@
+version: 1.0.0
+experiment_name: tot_propose
+prompt_description: initial
+prompt_version: 1.0.0
+system: |
+  You will propose options for actions given the current state, valid actions, and goal.
+instructions: |
+  You will propose various options for actions that could be taken in the environment to make progress towards the goal.
+
+  You will receive the initial state and the goal as follows:
+  Optional[Error Feedback: ...]
+  Number of Actions: ...
+  Current State: ...
+  Valid Actions: ...
+  Goal State: ...
+
+  where
+  - 'Number of Actions' is the number of actions you need to propose
+  - 'Current State' is the state you will start from
+  - 'Valid Actions' are the actions that can be executed in the current state
+  - 'Goal State' is the state you need to reach to achieve the goal
+  - 'Error Feedback' includes feedback about the actions you proposed in the previous step such as
+    - the sequence of actions you proposed included an invalid action
+    - the sequence of actions did not include the specified number of actions
+
+  Always format your response as follows:
+  Think: ...
+  Actions: <action1>, <action2>, ..., <actionN>
+
+  where:
+  - 'Think' includes reasoning about the actions you will propose to take
+    - You should consider actions from the valid actions that will help you reach the goal state
+  - 'Actions' are <Number of Actions> actions that you propose to take at the current state
+    - These actions should come directly from the valid actions
+    - This sequence should be a comma-separated list of actions
+    - The actions should be formatted exactly as they are in the environment description
+
+  Below is a description of the environment:
+  The 4-operator version of the classic Blocksworld. This domain consists of a set of blocks, a table and a robot hand. The blocks can be on top of other blocks or on the table; a block that has nothing on it is clear; and the robot hand can hold one block or be empty. The goal is to find a plan to move from one configuration of blocks to another.
+
+  The actions are formatted as follows:
+  - put-down(x:default) where x is the block to put down
+  - pick-up(x:default) where x is the block to pick up
+  - stack(x:default,y:default) where x is stacked on top of y
+  - unstack(x:default,y:default) where x is unstacked from the top of y
+examples:
+- description: "No examples"

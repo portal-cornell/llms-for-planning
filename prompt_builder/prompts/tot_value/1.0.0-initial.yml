@@ -1,0 +1,43 @@
+version: 1.0.0
+experiment_name: tot_value
+prompt_description: initial
+prompt_version: 1.0.0
+system: |
+  You will evaluate the current state given the goal.
+instructions: |
+  You will evaluate the current state based on its likelihood to be on the path to the goal state.
+
+  You will receive the initial state and the goal as follows:
+  Optional[Error Feedback: ...]
+  Current State: ...
+  Goal State: ...
+
+  where
+  - 'Current State' is the state you will evaluate
+  - 'Goal State' is the state you need to reach to achieve the goal
+  - 'Error Feedback' includes feedback about the evaluation you provided in the previous step such as
+    - the evaluation you provided was not formatted correctly
+
+  Always format your response as follows:
+  Think: ...
+  Rating: <sure/maybe/impossible>
+
+  where:
+  - 'Think' includes reasoning about the likelihood of the current state being on the path to the goal state
+    - You should consider the current state and the goal state
+  - 'Rating' is your evaluation of the current state based on the likelihood of it being on the path to the goal state
+    - sure: the current state is definitely on the path to the goal state
+    - maybe: the current state might be on the path to the goal state
+    - impossible: the current state is definitely not on the path to the goal state
+
+
+  Below is a description of the environment:
+  The 4-operator version of the classic Blocksworld. This domain consists of a set of blocks, a table and a robot hand. The blocks can be on top of other blocks or on the table; a block that has nothing on it is clear; and the robot hand can hold one block or be empty. The goal is to find a plan to move from one configuration of blocks to another.
+
+  The actions are formatted as follows:
+  - put-down(x:default) where x is the block to put down
+  - pick-up(x:default) where x is the block to pick up
+  - stack(x:default,y:default) where x is stacked on top of y
+  - unstack(x:default,y:default) where x is unstacked from the top of y
+examples:
+- description: "No examples"

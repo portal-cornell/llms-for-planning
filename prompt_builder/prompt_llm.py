@@ -151,7 +151,7 @@ def prompt_llm(user_prompt, messages, model, temperature, history=[], **kwargs):
         logger.info(f"LLM Accumulated Cost: ${get_accumulated_cost()}")
         if isinstance(response, ChatCompletion):
             prompt_tokens = response.usage.prompt_tokens
-            logger.info(f"Prompt Tokens: {prompt_tokens}")
+            logger.info(f"Accumulated Prompt Tokens: {prompt_tokens}")
             completion_tokens = response.usage.completion_tokens
             logger.info(f"Completion Tokens: {completion_tokens}")
             response = response.choices[0].message.content
