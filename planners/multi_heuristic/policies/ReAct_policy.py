@@ -59,7 +59,7 @@ class ReActPolicy(PlanPolicy):
         """
         return self.done
     
-    def _prompt_llm(self, user_prompt, params, history=[]):
+    def _prompt_llm(self, user_prompt, params, history):
         """Prompts the LLM with messages and parameters.
         
         Parameters:
@@ -145,11 +145,11 @@ class ReActPolicy(PlanPolicy):
         """
         # Generate initial state description
         initial_state_str = model.state_to_str(initial_state)
-        initial_state_description, _ = self._prompt_llm(initial_state_str, self.state_translation_prompt_params)
+        initial_state_description, _ = self._prompt_llm(initial_state_str, self.state_translation_prompt_params, history=[])
 
         # Generate goal state description
         goal_str = model.goal_to_str(goal)
-        goal_description, _ = self._prompt_llm(goal_str, self.state_translation_prompt_params)
+        goal_description, _ = self._prompt_llm(goal_str, self.state_translation_prompt_params, history=[])
 
         # Generate starter message
         starter_message = self._starter_message_template(initial_state_description, goal_description)
@@ -246,7 +246,7 @@ class ReActPolicy(PlanPolicy):
         
         # Format ReAct observation
         next_state_str = model.state_to_str(next_state)
-        next_state_description, _ = self._prompt_llm(next_state_str, self.state_translation_prompt_params)
+        next_state_description, _ = self._prompt_llm(next_state_str, self.state_translation_prompt_params, history=[])
         
         # Update graph with next state and action
         graph.add_node(hash(next_state), state=next_state, model=model_copy, observation=next_state_description)

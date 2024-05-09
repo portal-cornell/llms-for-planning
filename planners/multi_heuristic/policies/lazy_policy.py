@@ -75,7 +75,7 @@ class LazyPolicy(PlanPolicy):
         with open(log_file, "a") as f:
             f.write(data + "\n\n")
     
-    def _prompt_llm(self, user_prompt, params, history=[]):
+    def _prompt_llm(self, user_prompt, params, history):
         """Prompts the LLM with messages and parameters.
         
         Parameters:
@@ -191,7 +191,7 @@ class LazyPolicy(PlanPolicy):
             initial_state_description = self.state_descriptions[initial_state_hash]
         else:
             state_str = model.state_to_str(self.initial_state)
-            initial_state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params)
+            initial_state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])
             self.state_descriptions[initial_state_hash] = initial_state_description
 
         # Goal State: ...
@@ -199,7 +199,7 @@ class LazyPolicy(PlanPolicy):
             goal_description = self.goal_description
         else:
             goal_description = model.goal_to_str(state, self.goal)
-            goal_description, _ = self._prompt_llm(goal_description, self.state_translation_prompt_params)
+            goal_description, _ = self._prompt_llm(goal_description, self.state_translation_prompt_params, history=[])
             self.goal_description = goal_description
         
         action_plan_proposal_prompt += f"Initial State:\n{initial_state_description}\n"

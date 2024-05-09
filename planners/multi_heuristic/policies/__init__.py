@@ -4,6 +4,7 @@ from .ReAct_policy import ReActPolicy
 from .backtrack_policy import BacktrackPolicy
 from .lazy_policy import LazyPolicy
 from .tot_bfs_policy import ToTBFSPolicy
+from .tot_dfs_policy import ToTDFSPolicy
 
 # Modify this dictionary to register a custom policy
 NAME_TO_POLICY = {
@@ -12,5 +13,6 @@ NAME_TO_POLICY = {
     "ReAct": ReActPolicy,
     "backtrack": BacktrackPolicy,
     "lazy": LazyPolicy,
-    "tot_bfs": ToTBFSPolicy
+    "tot_bfs": ToTBFSPolicy,
+    "tot_dfs": ToTDFSPolicy
 }

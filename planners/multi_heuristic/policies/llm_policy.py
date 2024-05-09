@@ -100,7 +100,7 @@ class LLMPolicy(PlanPolicy):
         with open(log_file, "a") as f:
             f.write(data + "\n\n")
     
-    def _prompt_llm(self, user_prompt, params, history=[]):
+    def _prompt_llm(self, user_prompt, params, history):
         """Prompts the LLM with messages and parameters.
         
         Parameters:
@@ -298,7 +298,7 @@ class LLMPolicy(PlanPolicy):
             state_description = self.state_descriptions[hash(state)] # Use cached state description
         else:
             state_str = model.state_to_str(state)
-            state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params)
+            state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])
             self.state_descriptions[hash(state)] = state_description
         state_id = self._get_state_id(graph, state)
         intervention_msg = "" if self.current_state == self.next_state else " (Intervention)"
@@ -580,7 +580,7 @@ class LLMPolicy(PlanPolicy):
             state_description = self.state_descriptions[hash(self.current_state)] # Use cached state description
         else:
             state_str = model.state_to_str(self.current_state)
-            state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params)
+            state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])
             self.state_descriptions[hash(self.current_state)] = state_description
         
         action_history = ""
@@ -627,7 +627,7 @@ class LLMPolicy(PlanPolicy):
         else:
             str_literals = [str(literal) for literal in goal.literals]
             goal_str = f"Goal: {', '.join(str_literals)}"
-            goal_description, _ = self._prompt_llm(goal_str, self.state_translation_prompt_params)
+            goal_description, _ = self._prompt_llm(goal_str, self.state_translation_prompt_params, history=[])
             self.state_descriptions[hash(goal)] = goal_description
 
         # goal_description = model.goal_to_str(self.current_state, plan) # Plan is the goal

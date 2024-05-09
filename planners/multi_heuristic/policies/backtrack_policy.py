@@ -72,7 +72,7 @@ class BacktrackPolicy(PlanPolicy):
         with open(log_file, "a") as f:
             f.write(data + "\n\n")
     
-    def _prompt_llm(self, user_prompt, params, history=[]):
+    def _prompt_llm(self, user_prompt, params, history):
         """Prompts the LLM with messages and parameters.
         
         Parameters:
@@ -193,7 +193,7 @@ class BacktrackPolicy(PlanPolicy):
             state_description = self.state_descriptions[hash(state)]
         else:
             state_str = model.state_to_str(state)
-            state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params)
+            state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])
             self.state_descriptions[hash(state)] = state_description
 
         # Goal: ...

@@ -11,8 +11,8 @@ from PIL import Image
 from .policy import PlanPolicy
 from . import utils
 
-class ToTBFSPolicy(PlanPolicy):
-    """A plan policy that queries an LLM for actions at a state and evaluates states selected through BFS."""
+class ToTDFSPolicy(PlanPolicy):
+    """A plan policy that queries an LLM for actions at a state and evaluates states selected through DFS."""
         
     def __init__(self, kwargs):
         """Initializes the LLM policy.
@@ -49,8 +49,8 @@ class ToTBFSPolicy(PlanPolicy):
         self.cheap = kwargs["planner"].get("cheap", True)
         self.num_actions = kwargs["planner"].get("num_actions", 1)
         self.max_feedback_steps = kwargs["planner"].get("feedback_steps", 5)
-        self.candidate_states = kwargs["planner"].get("candidate_states", 2)
-        self.candidates_queue = []
+        self.value_threshold = kwargs["planner"].get("value_threshold", 1)
+        self.candidates_stack = []
 
         self.chat_history = []
         self.done = False
@@ -129,7 +129,7 @@ class ToTBFSPolicy(PlanPolicy):
                 This policy does not generate a plan.
         """
         self.initial_state = initial_state
-        self.candidates_queue.append(initial_state)
+        self.candidates_stack.append(initial_state)
         self.goal = goal
         return None
     
@@ -187,11 +187,10 @@ class ToTBFSPolicy(PlanPolicy):
             NotImplementedError
                 This function should be implemented in a subclass.
         """
-        i = 0
         feedback_steps = 0
-        matching_state_actions = []
-        while i < len(self.candidates_queue) and feedback_steps < self.max_feedback_steps:
-            candidate_state = self.candidates_queue[i]
+        matching_state_actions = None
+        while matching_state_actions is None and feedback_steps < self.max_feedback_steps:
+            candidate_state = self.candidates_stack[-1]
 
             actions_proposal_prompt = ""
             if self.actions_feedback_msg:
@@ -202,9 +201,7 @@ class ToTBFSPolicy(PlanPolicy):
             valid_actions = model.get_valid_actions(candidate_state)
             valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
             if len(valid_actions) <= self.num_actions:
-                matching_state_actions.append((candidate_state, valid_actions))
-                i += 1
-                feedback_steps = 0
+                matching_state_actions = (candidate_state, valid_actions)
                 self._write_to_log(self.log_file, f"ACTIONS PROPOSAL {i+1} PROMPT\n" + "-"*20)
                 self._write_to_log(self.log_file, "[Skip LLM] The number of valid actions is less than the number of actions requested.")
                 self._write_to_log(self.log_file, f"Actions:\n{valid_actions_str}\n")
@@ -232,14 +229,13 @@ class ToTBFSPolicy(PlanPolicy):
             actions_proposal_prompt += f"Valid Actions:\n{valid_actions_str}\n"
             actions_proposal_prompt += f"Goal State:\n{goal_description}\n"
 
-            # no history
             actions_proposal_response, self.chat_history = self._prompt_llm(actions_proposal_prompt, self.actions_proposal_prompt_params, history=[])
             
             # Write to log and append to chat history
-            self._write_to_log(self.log_file, f"ACTIONS PROPOSAL {i+1} PROMPT\n" + "-"*20)
+            self._write_to_log(self.log_file, f"ACTIONS PROPOSAL PROMPT\n" + "-"*20)
             self._write_to_log(self.log_file, actions_proposal_prompt)
             self.chat_history.append(actions_proposal_prompt)
-            self._write_to_log(self.log_file, f"ACTIONS PROPOSAL {i+1} RESPONSE\n" + "-"*20)
+            self._write_to_log(self.log_file, f"ACTIONS PROPOSAL RESPONSE\n" + "-"*20)
             self._write_to_log(self.log_file, actions_proposal_response)
             self.chat_history.append(actions_proposal_response)
 
@@ -266,9 +262,8 @@ class ToTBFSPolicy(PlanPolicy):
                 self.actions_feedback_msg = f"Action '{action}' is not a valid action for the current state."
                 feedback_steps += 1
                 continue
-            matching_state_actions.append((candidate_state, matching_actions))
-            i += 1
-            feedback_steps = 0
+            matching_state_actions = (candidate_state, matching_actions)
+        self.candidates_stack.pop()
         return matching_state_actions
     
     def compute_next_states(self, graph, model, current_state, actions):
@@ -287,25 +282,24 @@ class ToTBFSPolicy(PlanPolicy):
         Side Effects:
             Modifies the graph by adding the next states as nodes and the actions as edges.
         """
-        if len(actions) == 0:
+        if actions is None or len(actions) == 0:
             return # No valid action found
         
         next_states = []
-        for state, actions in actions:
-            model = graph.nodes[hash(state)]["model"]
-            for action in actions:
-                model_copy = deepcopy(model)
-                next_state, _, _, _, _ = model_copy.env.step(action)
-                graph.add_node(hash(next_state), state=next_state, model=model_copy)
-                graph.add_edge(hash(state), hash(next_state), action=action)
-                next_states.append(next_state)
+        state, state_actions = actions
+        model = graph.nodes[hash(state)]["model"]
+        for action in state_actions:
+            model_copy = deepcopy(model)
+            next_state, _, _, _, _ = model_copy.env.step(action)
+            graph.add_node(hash(next_state), state=next_state, model=model_copy)
+            graph.add_edge(hash(state), hash(next_state), action=action)
+            next_states.append(next_state)
         
         # Evaluate next states
-        i = 0
+        i = len(next_states)
         feedback_steps = 0
-        rated_states = [] # Ordered list of (rating, order of expansions, state)
-        while i < len(next_states) and feedback_steps < self.max_feedback_steps:
-            next_state = next_states[i]
+        while i > 0 and feedback_steps < self.max_feedback_steps:
+            next_state = next_states[i-1]
 
             value_prompt = ""
             if self.value_feedback_msg:
@@ -333,10 +327,10 @@ class ToTBFSPolicy(PlanPolicy):
             value_prompt += f"Goal State:\n{goal_description}\n"
 
             value_response, self.chat_history = self._prompt_llm(value_prompt, self.value_prompt_params, history=[])
-            self._write_to_log(self.log_file, f"VALUE PROMPT {i+1}\n" + "-"*20)
+            self._write_to_log(self.log_file, f"VALUE PROMPT {len(next_states) - i + 1}\n" + "-"*20)
             self._write_to_log(self.log_file, value_prompt)
             self.chat_history.append(value_prompt)
-            self._write_to_log(self.log_file, f"VALUE RESPONSE {i+1}\n" + "-"*20)
+            self._write_to_log(self.log_file, f"VALUE RESPONSE {len(next_states) - i + 1}\n" + "-"*20)
             self._write_to_log(self.log_file, value_response)
             self.chat_history.append(value_response)
 
@@ -348,26 +342,18 @@ class ToTBFSPolicy(PlanPolicy):
                 feedback_steps += 1
                 continue
             rating = rating_match.group(1)
-            if rating.lower() == "sure":
-                rated_states.append((2, i, next_state))
-            elif rating.lower() == "maybe":
-                rated_states.append((1, i, next_state))
-            elif rating.lower() == "impossible":
-                rated_states.append((0, i, next_state))
+            if 2 >= self.value_threshold and rating.lower() == "sure":
+                self.candidates_stack.append(next_state)
+            elif 1 >= self.value_threshold and rating.lower() == "maybe":
+                self.candidates_stack.append(next_state)
+            elif 0 >= self.value_threshold and rating.lower() == "impossible":
+                self.candidates_stack.append(next_state)
             else:
                 self.value_feedback_msg = f"The rating provided '{rating}' is not valid. Please provide a valid rating that is either 'sure', 'maybe', or 'impossible'."
                 feedback_steps += 1
                 continue
-            i += 1
+            i -= 1
             feedback_steps = 0
-        # Sort by highest rating and lowest order of expansions
-        self.candidates_queue = sorted(rated_states, key=lambda x: (x[0], -x[1]), reverse=True)[:self.candidate_states]
-        self.candidates_queue = [state for _, _, state in self.candidates_queue]
-        for candidate in self.candidates_queue:
-            if model.did_reach_goal(candidate, self.goal):
-                self.done = True
-                self.final_state = candidate
-                break
 
     def select_state(self, graph, plan, goal):
         """Selects the next state to propose actions from.
