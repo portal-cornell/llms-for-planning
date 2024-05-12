@@ -56,7 +56,7 @@ class ToTDFSPolicy(PlanPolicy):
         self.done = False
 
         self.initial_state = None
-        self.final_state = None
+        self.next_state = None
     
     def is_done(self):
         """Returns whether the policy is done.
@@ -129,6 +129,7 @@ class ToTDFSPolicy(PlanPolicy):
                 This policy does not generate a plan.
         """
         self.initial_state = initial_state
+        self.next_state = initial_state
         self.candidates_stack.append(initial_state)
         self.goal = goal
         return None
@@ -187,6 +188,10 @@ class ToTDFSPolicy(PlanPolicy):
             NotImplementedError
                 This function should be implemented in a subclass.
         """
+        if len(self.candidates_stack) == 0:
+            # No more states to propose actions from
+            return None
+        
         feedback_steps = 0
         matching_state_actions = None
         while matching_state_actions is None and feedback_steps < self.max_feedback_steps:
@@ -198,11 +203,11 @@ class ToTDFSPolicy(PlanPolicy):
                 self.actions_feedback_msg = ""
 
             # Valid Actions: ...
-            valid_actions = model.get_valid_actions(candidate_state)
+            valid_actions = self._actions_to_propose(graph, model, candidate_state)
             valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
             if len(valid_actions) <= self.num_actions:
                 matching_state_actions = (candidate_state, valid_actions)
-                self._write_to_log(self.log_file, f"ACTIONS PROPOSAL {i+1} PROMPT\n" + "-"*20)
+                self._write_to_log(self.log_file, f"ACTIONS PROPOSAL PROMPT\n" + "-"*20)
                 self._write_to_log(self.log_file, "[Skip LLM] The number of valid actions is less than the number of actions requested.")
                 self._write_to_log(self.log_file, f"Actions:\n{valid_actions_str}\n")
                 continue
@@ -348,12 +353,17 @@ class ToTDFSPolicy(PlanPolicy):
                 self.candidates_stack.append(next_state)
             elif 0 >= self.value_threshold and rating.lower() == "impossible":
                 self.candidates_stack.append(next_state)
-            else:
+            elif rating.lower() not in ["sure", "maybe", "impossible"]:
                 self.value_feedback_msg = f"The rating provided '{rating}' is not valid. Please provide a valid rating that is either 'sure', 'maybe', or 'impossible'."
                 feedback_steps += 1
                 continue
             i -= 1
             feedback_steps = 0
+            self.next_state = self.candidates_stack[-1] if len(self.candidates_stack) > 0 else self.next_state
+            if model.did_reach_goal(self.next_state, self.goal):
+                self.done = True
+                break
+        
 
     def select_state(self, graph, plan, goal):
         """Selects the next state to propose actions from.
@@ -375,6 +385,4 @@ class ToTDFSPolicy(PlanPolicy):
                 There are no states left to propose actions from. This should never happen
                 since the goal should be reached before this point.
         """
-        if self.done:
-            return self.final_state
-        return self.initial_state
+        return self.next_state

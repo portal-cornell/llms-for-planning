@@ -53,7 +53,6 @@ def get_actions_to_propose(graph, model, state):
         next_state, _, _, _, _ = model_copy.env.step(action)
         if hash(next_state) not in graph.nodes:
             actions_to_propose.append(action)
-    import pdb; pdb.set_trace()
     return actions_to_propose
 
 def convert_states_to_bitmap_sokoban(all_states):

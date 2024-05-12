@@ -37,7 +37,7 @@ class LazyPolicy(PlanPolicy):
         # State translation
         self.state_translation_prompt_params = kwargs["llm"]["prompts"].get("state_translation_prompt", {})
 
-        # State-action proposal
+        # Action plan proposal
         self.action_plan_proposal_prompt_params = kwargs["llm"]["prompts"].get("action_proposal_prompt", {})
         self.action_plan_feedback_msg = ""
 
@@ -46,6 +46,7 @@ class LazyPolicy(PlanPolicy):
 
         self.initial_state = None
         self.final_state = None
+        self.action_and_visited_state = [] # (action, visited_state)
 
         self.chat_history = []
         self.done = False
@@ -184,8 +185,25 @@ class LazyPolicy(PlanPolicy):
         if self.action_plan_feedback_msg:
             action_plan_proposal_prompt += f"Error Feedback: {self.action_plan_feedback_msg}\n"
             self.action_plan_feedback_msg = ""
+        
+        # States Visited: ...
+        # <action1>: ...
+        # <action2>: ...
+        # ...
+        # <actionN>: ...
+        visited_state_description = ""
+        for action, visited_state in self.action_and_visited_state:
+            visited_state_hash = hash(visited_state)
+            if self.state_descriptions.get(visited_state_hash):
+                state_description = self.state_descriptions[visited_state_hash]
+            else:
+                state_str = model.state_to_str(visited_state)
+                state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])
+                self.state_descriptions[visited_state_hash] = state_description
+            visited_state_description += f"{action}:\n{state_description}\n"
+        self.action_and_visited_state = [] # Reset visited states
 
-        # Initial State: ...
+        # Starting State: ...
         initial_state_hash = hash(self.initial_state)
         if self.state_descriptions.get(initial_state_hash):
             initial_state_description = self.state_descriptions[initial_state_hash]
@@ -193,6 +211,10 @@ class LazyPolicy(PlanPolicy):
             state_str = model.state_to_str(self.initial_state)
             initial_state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])
             self.state_descriptions[initial_state_hash] = initial_state_description
+        
+        # Valid Actions: ...
+        valid_actions = model.get_valid_actions(state)
+        valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
 
         # Goal State: ...
         if self.goal_description:
@@ -202,7 +224,9 @@ class LazyPolicy(PlanPolicy):
             goal_description, _ = self._prompt_llm(goal_description, self.state_translation_prompt_params, history=[])
             self.goal_description = goal_description
         
-        action_plan_proposal_prompt += f"Initial State:\n{initial_state_description}\n"
+        action_plan_proposal_prompt += f"\nStates Visited:\n{visited_state_description}\n"
+        action_plan_proposal_prompt += f"Starting State:\n{initial_state_description}\n"
+        action_plan_proposal_prompt += f"Valid Actions:\n{valid_actions_str}\n"
         action_plan_proposal_prompt += f"Goal State:\n{goal_description}\n"
 
         action_plan_proposal_response, self.chat_history = self._prompt_llm(action_plan_proposal_prompt, self.action_plan_proposal_prompt_params, history=self.chat_history)
@@ -211,7 +235,7 @@ class LazyPolicy(PlanPolicy):
         self._write_to_log(self.log_file, "ACTION PLAN PROPOSAL PROMPT\n" + "-"*20)
         self._write_to_log(self.log_file, action_plan_proposal_prompt)
         self.chat_history.append(action_plan_proposal_prompt)
-        self._write_to_log(self.log_file, "ACTION PLAN PROPOSAL RESPONSE (THINK OMITTED)\n" + "-"*20)
+        self._write_to_log(self.log_file, "ACTION PLAN PROPOSAL RESPONSE\n" + "-"*20)
         self._write_to_log(self.log_file, action_plan_proposal_response)
 
         # Extract action sequence
@@ -231,7 +255,7 @@ class LazyPolicy(PlanPolicy):
             reflect_str = f"Reflect: {reflect_match.group(1)}\n"
         think_omitted_str = f"{reflect_str}\nAction Sequence: {action_sequence_str}"
         self.chat_history.append(think_omitted_str)
-
+        self.action_sequence = action_sequence_list
         return action_sequence_list
     
     def compute_next_states(self, graph, model, current_state, actions):
@@ -261,6 +285,16 @@ class LazyPolicy(PlanPolicy):
             curr_model = model_copy
             # Get valid action
             valid_actions = model_copy.get_valid_actions(curr_state)
+            # # Parse action like stack(a:default,b:default) and pick-up(a:default) to stack(a,b) and pick-up(a)
+            # typeless_action_regex = r"(\w+)\((.*)\)"
+            # typeless_action_match = re.match(typeless_action_regex, action)
+            # if typeless_action_match:
+            #     action_name = typeless_action_match.group(1)
+            #     action_args = typeless_action_match.group(2)
+            #     split_args = action_args.split(',')
+            #     action_args = [arg.split(':')[0] for arg in split_args]
+            #     typeless_action = f"{action_name}({','.join(action_args)})"
+
             matching_action = list(filter(lambda x: str(x) == action, valid_actions))
             if len(matching_action) == 0:
                 valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
@@ -273,6 +307,7 @@ class LazyPolicy(PlanPolicy):
             graph.add_edge(hash(curr_state), hash(next_state), action=action)
             curr_state = next_state
             self.final_state = next_state
+            self.action_and_visited_state.append((action, next_state))
         self.done = model_copy.did_reach_goal(next_state, self.goal)
         if not self.done:
             unsatisfied_predicates = []

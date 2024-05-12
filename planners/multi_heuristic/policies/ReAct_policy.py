@@ -14,8 +14,6 @@ from .policy import PlanPolicy
 
 class ReActPolicy(PlanPolicy):
     """A plan policy that queries an LLM to think and act in an environment while receiving feedback."""
-    
-    FINISH_ACTION = "Finish"
 
     def __init__(self, kwargs):
         """Initializes the ReAct policy.
@@ -34,13 +32,20 @@ class ReActPolicy(PlanPolicy):
         self.log_file = kwargs["planner"].get("log_file", None)
         if self.log_file:
             os.makedirs(os.path.dirname(self.log_file), exist_ok=True)
+        self.state_descriptions = {} # Cache for state descriptions
+        self.goal_description = "" # Cache for goal description
         
         # State translation
         self.state_translation_prompt_params = kwargs["llm"]["prompts"].get("state_translation_prompt", {})
 
         # ReAct prompt
         self.action_proposal_prompt_params = kwargs["llm"]["prompts"].get("action_proposal_prompt", {})
-        
+        self.action_feedback_msg = ""
+
+        # Planner params
+        self.num_actions = kwargs["planner"].get("num_actions", 1)
+        self.max_feedback_steps = kwargs["planner"].get("feedback_steps", 5)
+
         self.chat_history = []
         self.truncated_chat_history = [] # Current chat history that fits within the context length
         self.previous_state = None
@@ -105,22 +110,7 @@ class ReActPolicy(PlanPolicy):
         """
         with open(log_file, "a") as f:
             f.write(data + "\n\n")
-    
-    def _starter_message_template(self, initial_state, goal_state):
-        """Returns the starter message template for the ReAct prompt.
-        
-        Parameters:
-            initial_state (object)
-                The initial state of the environment.
-            goal_state (object)
-                The goal state to reach.
-        
-        Returns:
-            starter_message_template (str)
-                The starter message template for the ReAct prompt.
-        """
-        return f"The initial state is the following:\n{initial_state}\n\nThe goal state is the following:\n{goal_state}"
-    
+
     def generate_plan(self, model, initial_state, goal):
         """Generates a plan to reach the goal.
 
@@ -143,22 +133,8 @@ class ReActPolicy(PlanPolicy):
         Side Effects:
             - Prompts the LLM to describe the initial state and goal state.
         """
-        # Generate initial state description
-        initial_state_str = model.state_to_str(initial_state)
-        initial_state_description, _ = self._prompt_llm(initial_state_str, self.state_translation_prompt_params, history=[])
-
-        # Generate goal state description
-        goal_str = model.goal_to_str(goal)
-        goal_description, _ = self._prompt_llm(goal_str, self.state_translation_prompt_params, history=[])
-
-        # Generate starter message
-        starter_message = self._starter_message_template(initial_state_description, goal_description)
-
-        self.next_state = initial_state # Save initial state in case of invalid action at beginning
-        return starter_message
-    
-    def _observation_message_template(self, observation):
-        return f"Obs:\n{observation}"
+        self.goal = goal
+        return None
     
     def propose_actions(self, graph, model, state, plan):
         """Proposes an action(s) to take in order to reach the goal.
@@ -177,41 +153,63 @@ class ReActPolicy(PlanPolicy):
             actions (list)
                 The proposed actions to take; for ReAct this is a single action.
         """
-        user_prompt = ""
-        if len(self.chat_history) == 0:
-            # Prompt with starter message
-            user_prompt = plan
-        elif self.previous_state == state:
-            # Prompt with no change in state
-            user_prompt = self._observation_message_template("No change in state.")
-        else:
-            # Prompt with observation
-            assert hash(state) in graph.nodes, "The current state is not in the graph."
-            observation = graph.nodes[hash(state)]["observation"]
-            user_prompt = self._observation_message_template(observation)
-        self.previous_state = state
+        feedback_steps = 0
+        matching_action = []
+        while len(matching_action) == 0 and feedback_steps < self.max_feedback_steps:
+            action_proposal_prompt = ""
+            if self.action_feedback_msg:
+                action_proposal_prompt += f"Error Feedback: {self.action_feedback_msg}\n"
+                self.action_feedback_msg = ""
+            
+            # Current State: ...
+            state_hash = hash(state)
+            if self.state_descriptions.get(state_hash):
+                state_description = self.state_descriptions[state_hash]
+            else:
+                state_str = model.state_to_str(state)
+                state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])
+                self.state_descriptions[state_hash] = state_description
 
-        # Get THINK and ACTION from LLM
-        thought_and_action, self.truncated_chat_history = self._prompt_llm(user_prompt, self.action_proposal_prompt_params, history=self.truncated_chat_history)
-        
-        # Update and log user-assistant pair
-        self.chat_history.append(user_prompt)
-        self.truncated_chat_history.append(user_prompt)
-        self._write_to_log(self.log_file, user_prompt)
-        self.chat_history.append(thought_and_action)
-        self.truncated_chat_history.append(thought_and_action)
-        self._write_to_log(self.log_file, thought_and_action)
+            # Goal State: ...
+            if self.goal_description:
+                goal_description = self.goal_description
+            else:
+                goal_description = model.goal_to_str(state, self.goal)
+                goal_description, _ = self._prompt_llm(goal_description, self.state_translation_prompt_params, history=[])
+                self.goal_description = goal_description
+            
+            # Valid Actions: ...
+            valid_actions = model.get_valid_actions(state)
+            valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
 
-        # Extract and return ACTION from LLM string response
-        regex = r"Action:\s*(.+)"
-        match = re.search(regex, thought_and_action)
-        if not match:
-            self.done = True # Malformed response; kill the planner
-            return []
-        action = match.group(1)
-        action = action.replace(" ", "") # Remove spaces
-        valid_actions = model.get_valid_actions(state) + [ReActPolicy.FINISH_ACTION]
-        matching_action = list(filter(lambda x: str(x) == action, valid_actions))
+            action_proposal_prompt += f"Current State:\n{state_description}\n"
+            action_proposal_prompt += f"Goal State:\n{goal_description}\n"
+            action_proposal_prompt += f"Valid Actions:\n{valid_actions_str}\n"
+
+            action_proposal_response, self.chat_history = self._prompt_llm(action_proposal_prompt, self.action_proposal_prompt_params, history=self.chat_history)
+            
+            # Write to log and append to chat history
+            self._write_to_log(self.log_file, f"ACTION PROPOSAL PROMPT\n" + "-"*20)
+            self._write_to_log(self.log_file, action_proposal_prompt)
+            self.chat_history.append(action_proposal_prompt)
+            self._write_to_log(self.log_file, f"ACTION PROPOSAL RESPONSE\n" + "-"*20)
+            self._write_to_log(self.log_file, action_proposal_response)
+            self.chat_history.append(action_proposal_response)
+
+            # Extract and return ACTION from LLM string response
+            regex = r"Action:\s*(.+)"
+            match = re.search(regex, action_proposal_response)
+            if not match:
+                self.action_feedback_msg = "The action was malformed. Please provide a valid action in the form 'Action: <action>'."
+                feedback_steps += 1
+                continue
+            action = match.group(1)
+            action = action.replace(" ", "") # Remove spaces
+            valid_actions = model.get_valid_actions(state)
+            matching_action = list(filter(lambda x: str(x) == action, valid_actions))
+            if len(matching_action) == 0:
+                self.action_feedback_msg = f"The action '{action}' is not valid. Please provide a valid action."
+                feedback_steps += 1
         return matching_action
     
     def compute_next_states(self, graph, model, current_state, actions):
@@ -238,22 +236,16 @@ class ReActPolicy(PlanPolicy):
         
         # Simulate action in environment
         action = actions[0] # ReAct only ever proposes one action
-        if action == ReActPolicy.FINISH_ACTION:
-            self.done = True # ReAct decides when it is done without using model feedback
-            return
         model_copy = deepcopy(model)
         next_state, _, _, _, _ = model_copy.env.step(action)
         
-        # Format ReAct observation
-        next_state_str = model.state_to_str(next_state)
-        next_state_description, _ = self._prompt_llm(next_state_str, self.state_translation_prompt_params, history=[])
-        
         # Update graph with next state and action
-        graph.add_node(hash(next_state), state=next_state, model=model_copy, observation=next_state_description)
+        graph.add_node(hash(next_state), state=next_state, model=model_copy)
         graph.add_edge(hash(current_state), hash(next_state), action=action)
 
         # Save the next state
         self.next_state = next_state
+        self.done = model_copy.did_reach_goal(next_state, self.goal)
 
     def select_state(self, graph, plan, goal):
         """Selects the next state to propose actions from.

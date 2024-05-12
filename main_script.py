@@ -125,6 +125,8 @@ def parse_log(log_file_path):
             The actual plan taken by the planner.
         total_nodes_expanded (int)
             The total number of nodes expanded by the planner.
+        total_edges_expanded (int)
+            The total number of edges expanded by the planner.
     """
     with open(log_file_path, "r") as f:
         log = f.read()
@@ -140,7 +142,10 @@ def parse_log(log_file_path):
     total_nodes_expanded = re.search(r"Total nodes expanded: (.*)", log)
     assert total_nodes_expanded, f"Total nodes expanded not found in {log_file_path}"
     total_nodes_expanded = int(total_nodes_expanded.group(1))
-    return reached_goal, optimal_plan, actual_plan, total_nodes_expanded
+    total_edges_expanded = re.search(r"Total edges expanded: (.*)", log)
+    assert total_edges_expanded, f"Total edges expanded not found in {log_file_path}"
+    total_edges_expanded = int(total_edges_expanded.group(1))
+    return reached_goal, optimal_plan, actual_plan, total_nodes_expanded, total_edges_expanded
 
 def create_results_csv(log_name):
     """Creates a CSV file with the results of the planner.
@@ -155,17 +160,17 @@ def create_results_csv(log_name):
     output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     csv_filename = os.path.join(output_dir, "results.csv")
     with open(csv_filename, "w") as f:
-        f.write("instance,reached_goal,optimal_plan,optimal_length,actual_plan,actual_length,total_nodes_expanded\n")
+        f.write("instance,reached_goal,optimal_plan,optimal_length,actual_plan,actual_length,total_nodes_expanded,total_edges_expanded\n")
     
         for dir_path, _, file_names in os.walk(output_dir):
             for file_name in file_names:
                 if file_name == log_name:
                     file_path = os.path.join(dir_path, file_name)
                     instance = os.path.basename(dir_path)
-                    reached_goal, optimal_plan, actual_plan, total_nodes_expanded = parse_log(file_path)
+                    reached_goal, optimal_plan, actual_plan, total_nodes_expanded, total_edges_expanded = parse_log(file_path)
                     optimal_length = len(optimal_plan)
                     actual_length = len(actual_plan)
-                    f.write(f'"{instance}","{reached_goal}","{optimal_plan}","{optimal_length}","{actual_plan}","{actual_length}","{total_nodes_expanded}"\n')
+                    f.write(f'"{instance}","{reached_goal}","{optimal_plan}","{optimal_length}","{actual_plan}","{actual_length}","{total_nodes_expanded}","{total_edges_expanded}"\n')
 
 @hydra.main(version_base="1.2", config_path="conf", config_name="config")
 def run_planner(cfg: DictConfig) -> None:
@@ -218,7 +223,7 @@ def run_planner(cfg: DictConfig) -> None:
         graph_file = kwargs["planner"].get("graph_file")
         if graph_file:
             visualize_graph(graph, graph_file)
-        
+
         log_file = kwargs["planner"].get("log_file")
         if log_file:
             with open(log_file, "a") as f:
@@ -227,11 +232,12 @@ def run_planner(cfg: DictConfig) -> None:
                 str_action_sequence = [str(action) for action in action_sequence]
                 f.write(f"Action sequence: {json.dumps(str_action_sequence)}\n")
                 f.write(f"Total nodes expanded: {len(graph.nodes)}\n")
+                f.write(f"Total edges expanded: {len(graph.edges)}\n")
                 str_optimal_plan = [str(action) for action in optimal_plan]
                 f.write(f"Optimal plan: {json.dumps(str_optimal_plan)}\n")
                 f.write("\n")
         logging.info(f"Accumulated cost: {get_accumulated_cost()}")
-    
+
     cfg.planner.log_file = log_file
     log_name = os.path.basename(log_file)
     create_results_csv(log_name)

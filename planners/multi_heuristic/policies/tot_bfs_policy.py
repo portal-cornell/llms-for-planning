@@ -199,7 +199,7 @@ class ToTBFSPolicy(PlanPolicy):
                 self.actions_feedback_msg = ""
 
             # Valid Actions: ...
-            valid_actions = model.get_valid_actions(candidate_state)
+            valid_actions = self._actions_to_propose(graph, model, candidate_state)
             valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
             if len(valid_actions) <= self.num_actions:
                 matching_state_actions.append((candidate_state, valid_actions))
