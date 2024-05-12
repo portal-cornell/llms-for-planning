@@ -133,8 +133,24 @@ class ReActPolicy(PlanPolicy):
         Side Effects:
             - Prompts the LLM to describe the initial state and goal state.
         """
-        self.goal = goal
-        return None
+        # self.goal = goal
+        # return None
+        # Generate initial state description
+        initial_state_str = model.state_to_str(initial_state)
+        initial_state_description, _ = self._prompt_llm(initial_state_str, self.state_translation_prompt_params)
+
+        # Generate goal state description
+        goal_str = model.goal_to_str(initial_state, goal)
+        goal_description, _ = self._prompt_llm(goal_str, self.state_translation_prompt_params)
+
+        # Generate starter message
+        starter_message = self._starter_message_template(initial_state_description, goal_description)
+
+        self.next_state = initial_state # Save initial state in case of invalid action at beginning
+        return starter_message
+    
+    def _observation_message_template(self, observation):
+        return f"Obs:\n{observation}"
     
     def propose_actions(self, graph, model, state, plan):
         """Proposes an action(s) to take in order to reach the goal.
@@ -212,7 +228,7 @@ class ReActPolicy(PlanPolicy):
                 feedback_steps += 1
         return matching_action
     
-    def compute_next_states(self, graph, model, current_state, actions):
+    def compute_next_states(self, graph, model, current_state, actions, goal):
         """Computes the next states and updates the graph.
 
         ReAct only ever proposes one action at a time.
@@ -236,8 +252,14 @@ class ReActPolicy(PlanPolicy):
         
         # Simulate action in environment
         action = actions[0] # ReAct only ever proposes one action
+        # if action == ReActPolicy.FINISH_ACTION:
+        #     self.done = True # ReAct decides when it is done without using model feedback
+        #     return
         model_copy = deepcopy(model)
         next_state, _, _, _, _ = model_copy.env.step(action)
+        if model.did_reach_goal(next_state, goal):
+            self.done = True
+            return
         
         # Update graph with next state and action
         graph.add_node(hash(next_state), state=next_state, model=model_copy)
