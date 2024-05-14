@@ -403,7 +403,9 @@ def get_optimal_plan(domain, initial_state):
     Returns:
         plan (List[pddlgym.structs.Literal])
             The optimal plan for the environment.
+        statistics (dict)
+            The statistics for the planner.
     """
     planner = FD()
     plan = planner(domain, initial_state)
-    return plan
+    return plan, planner._statistics

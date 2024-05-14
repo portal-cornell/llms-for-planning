@@ -172,6 +172,32 @@ def create_results_csv(log_name):
                     actual_length = len(actual_plan)
                     f.write(f'"{instance}","{reached_goal}","{optimal_plan}","{optimal_length}","{actual_plan}","{actual_length}","{total_nodes_expanded}","{total_edges_expanded}"\n')
 
+def log_planner_results(log_file, optimal_plan, statistics):
+    """Logs the results of the classical planner.
+    
+    Parameters:
+        log_file (str)
+            The path to the log file to write to.
+        optimal_plan (List[str])
+            The optimal plan to reach the goal.
+        statistics (Dict[str, Any])
+            The statistics of the planner.
+    
+    Side Effects:
+        - The results are written to the log file
+    """
+    if log_file:
+        nodes_expanded = statistics.get("num_node_expansions", 0)
+        with open(log_file, "a") as f:
+            f.write("\n\n")
+            f.write(f"Reached goal: {True}\n")
+            str_optimal_plan = [str(action) for action in optimal_plan]
+            f.write(f"Action sequence: {json.dumps(str_optimal_plan)}\n")
+            f.write(f"Total nodes expanded: {nodes_expanded}\n")
+            f.write(f"Total edges expanded: {nodes_expanded-1}\n")
+            f.write(f"Optimal plan: {json.dumps(str_optimal_plan)}\n")
+            f.write("\n")
+
 @hydra.main(version_base="1.2", config_path="conf", config_name="config")
 def run_planner(cfg: DictConfig) -> None:
     """Run a planner on an environment specified in the configuration.
@@ -211,14 +237,20 @@ def run_planner(cfg: DictConfig) -> None:
     for i in tqdm(instance_idx):
         instance_obj = model.env.problems[i]
         setup_instance_logging_directory(instance_obj, instance_dir, cfg, kwargs)
-        plan_policy = NAME_TO_POLICY[cfg.planner.plan_policy](kwargs)
         model.env.fix_problem_index(i)
         initial_state, _ = model.env.reset()
+        if cfg.planner.plan_policy == "fd":
+            log_file = kwargs["planner"].get("log_file")
+            optimal_plan, statistics = pddlgym_utils.get_optimal_plan(model.env.domain, initial_state)
+            log_planner_results(log_file, optimal_plan, statistics)
+            continue
+        plan_policy = NAME_TO_POLICY[cfg.planner.plan_policy](kwargs)
         goal = initial_state.goal
         reached_goal, action_sequence, graph = plan(plan_policy, model, initial_state, goal, cfg.planner.max_steps)
         
         # Get optimal plan
-        optimal_plan = pddlgym_utils.get_optimal_plan(model.env.domain, initial_state)
+        optimal_plan, statistics = pddlgym_utils.get_optimal_plan(model.env.domain, initial_state)
+        print(statistics['num_node_expansions'])
 
         graph_file = kwargs["planner"].get("graph_file")
         if graph_file:
