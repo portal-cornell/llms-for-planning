@@ -243,6 +243,7 @@ class LazyPolicy(PlanPolicy):
         action_sequence_match = re.search(action_sequence_regex, action_plan_proposal_response)
         if not action_sequence_match:
             self.action_plan_feedback_msg = f"The action sequence was malformed. Please provide a valid action sequence in the form 'Action Sequence: <action1>, <action2>, ...'."
+            self.chat_history.append(action_plan_proposal_response)
             return []
         action_sequence_str = action_sequence_match.group(1)
         action_sequence_list = [action.replace(" ", "") for action in action_sequence_str.split(", ")]
