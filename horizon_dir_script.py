@@ -74,7 +74,8 @@ if __name__ == "__main__":
     for i in trange(len(problems)):
         model.env.fix_problem_index(i)
         initial_state, _ = model.env.reset()
-        optimal_plan_length = len(pddlgym_utils.get_optimal_plan(model.env.domain, initial_state))
+        optimal_plan, _ = pddlgym_utils.get_optimal_plan(model.env.domain, initial_state)
+        optimal_plan_length = len(optimal_plan)
         problem_fname = os.path.basename(problems[i].problem_fname)
         path_lengths[optimal_plan_length] = path_lengths.get(optimal_plan_length, []) + [problem_fname]
     
