@@ -3,6 +3,7 @@ This module contains utility functions that can be shared across different polic
 """
 import string
 import ast
+import re
 from copy import deepcopy
 
 def get_actions_to_propose_cheap(graph, model, state):
@@ -55,21 +56,31 @@ def get_actions_to_propose(graph, model, state):
             actions_to_propose.append(action)
     return actions_to_propose
 
-def convert_states_to_bitmap_sokoban(all_states):
-    def get_box_info(literal_str):
-        box, coords = literal_str.split(',')
-        return int(box[box.index('box') + 3 : box.rindex(':box')]), int(coords[1 : coords.index('-')]), int(coords[coords.index('-') + 1 : coords.rindex('f')])
+def get_box_info(literal_str):
+    box, coords = literal_str.split(',')
+    return int(box[box.index('box') + 3 : box.rindex(':box')]), int(coords[1 : coords.index('-')]), int(coords[coords.index('-') + 1 : coords.rindex('f')])
+
+
+def convert_states_to_bitmap_sokoban(all_states, is_goal=False):
+    box_letters = string.ascii_lowercase
+    if is_goal:
+        goals = []
+        for literal in all_states.literals:
+            box, r, c = get_box_info(str(literal))
+            goals.append(f'box {box_letters[box]}: {(r,c)}')
+        return '\n'.join(goals)
 
     max_grid_ind = 4
-    for state in all_states.objects:
-        state_str = str(state)
-        if state_str.startswith('f'):
-            first, _ = state_str.split('-')
-            max_grid_ind = max(max_grid_ind, int(first[1]))
+    regex = 'adjacent\(f([0-9]*)-([0-9]*)f:loc,f([0-9]*)-([0-9]*)f:loc,([a-z]*):dir\)'
+    for literal in all_states.literals:
+        literal_str = str(literal)
+        if literal_str.startswith('adjacent'):
+            m = re.search(regex, literal_str)
+            max_grid_ind = max([int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)), max_grid_ind])
     
+    robot_coord, walls, boxes, goals = None, [], {}, {}
     grid_size = max_grid_ind + 1
     grid = [[1] * grid_size for _ in range(grid_size)]
-    box_letters = string.ascii_lowercase
     for literal in all_states.literals:
         literal_str = str(literal)
         if literal_str.startswith('clear'):
@@ -80,23 +91,31 @@ def convert_states_to_bitmap_sokoban(all_states):
         elif literal_str.startswith('at('):
             box, r, c = get_box_info(literal_str)
             grid[r][c] = box_letters[box] # box starting location
+            boxes[box_letters[box]] = (r, c)
         elif literal_str.startswith('at-robot'):
             _, r, c, = literal_str.split('-')
             r, c = int(r[r.index('f') + 1 :]), int(c[ : c.index('f')])
             grid[r][c] = 'r' # robot starting location
+            robot_coord = (r, c)
     
     for literal in all_states.goal.literals:
         literal_str = str(literal)
         box, r, c = get_box_info(literal_str)
         grid[r][c] = box_letters[box].upper() # box goal location
+        goals[box_letters[box]] = (r, c)
+        
     
     s = ''
-    for row in grid:
-        for cell in row:
+    for r, row in enumerate(grid):
+        for c, cell in enumerate(row):
             s += str(cell)
+            if cell == 1:
+                walls.append((r, c))
         s += '\n'
     
-    return s.strip()
+    s += f"\nObject locations:\nrobot: {robot_coord}\nwalls: {', '.join([str(s) for s in walls])}\nboxes: {', '.join([letter + ': ' + str(coord) for letter, coord in boxes.items()])}\ngoals: {', '.join([letter + ': ' + str(coord) for letter, coord in goals.items()])}"
+    
+    return s + "\n"
 
 def map_llm_action_sokoban(action_str):
     def filter_diff(start_r, end_r, start_c, end_c):
@@ -122,3 +141,62 @@ def map_llm_action_sokoban(action_str):
             parsed_action = f'push(f{start_r}-{start_c}f:loc,f{end_r}-{end_c}f:loc,f{block_end_r}-{block_end_c}f:loc,{direction}:dir)'
     
     return parsed_action
+
+def pretty_pddl_state(state, domain, model, is_goal=False):
+    if domain == 'logistics':
+        state_str = model.state_to_str(state)
+        return state_str.replace(':default', '')
+    elif domain == 'grippers':
+        state_str = model.state_to_str(state)
+        for s in ['robot', 'object', 'gripper', 'room']:
+            state_str = state_str.replace(f':{s}', '')
+        return state_str
+    elif domain == 'hanoi':
+        literals = [str(literal) for literal in state.literals if not 'smaller(peg' in str(literal)]
+        if not is_goal:
+            objects = [str(obj) for obj in state.objects]
+            str_state = f"""Predicates: {', '.join(literals)}
+            Objects: {', '.join(objects)}"""
+            return str_state.replace(':default', '')
+
+        return f"Goal: {', '.join(literals)}"
+    elif domain == 'sokoban':
+        return convert_states_to_bitmap_sokoban(state, is_goal)
+    else:
+        return model.state_to_str(state)
+
+def translate_literal(literal, domain):
+    if domain in ['logistics', 'hanoi']:
+        return literal.replace(':default', '')
+    elif domain == 'gippers':
+        for s in ['robot', 'object', 'gripper', 'room']:
+            literal = literal.replace(f':{s}', '')
+        return literal
+    elif domain == 'sokoban':
+        box, r, c = get_box_info(str(literal))
+        return f'box {string.ascii_lowercase[box]} at {(r,c)}'
+    else:
+        return literal
+
+def pretty_pddl_actions(action_str, domain):
+    if domain == 'logistics':
+        return action_str.replace(':default', '')
+    elif domain == 'grippers':
+        for s in ['robot', 'object', 'gripper', 'room']:
+            state_str = state_str.replace(f':{s}', '')
+        return state_str
+    elif domain == "hanoi":
+        return action_str.replace(':default', '')
+    elif domain == 'sokoban':
+        if action_str.startswith('move'):
+            regex = 'move\(f([0-9]*)-([0-9]*)f:loc,f([0-9]*)-([0-9]*)f:loc,([a-z]*):dir\)'
+            m = re.search(regex, action_str)
+            start_r, start_c, end_r, end_c = m.group(1), m.group(2), m.group(3), m.group(4)
+            return f"move(({start_r}, {start_c}), ({end_r}, {end_c}))"
+        else:
+            regex = 'push\(f([0-9]*)-([0-9]*)f:loc,f([0-9]*)-([0-9]*)f:loc,f([0-9]*)-([0-9]*)f:loc,([a-z]*):dir,box[0-9]*:box\)'
+            m = re.search(regex, action_str)
+            start_r, start_c, end_r, end_c = m.group(1), m.group(2), m.group(3), m.group(4)
+            return f"push(({start_r}, {start_c}), ({end_r}, {end_c}))"
+    else:
+        return action_str

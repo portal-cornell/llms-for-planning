@@ -252,9 +252,9 @@ def run_planner(cfg: DictConfig) -> None:
         optimal_plan, statistics = pddlgym_utils.get_optimal_plan(model.env.domain, initial_state)
         print(statistics['num_node_expansions'])
 
-        graph_file = kwargs["planner"].get("graph_file")
-        if graph_file:
-            visualize_graph(graph, graph_file)
+        # graph_file = kwargs["planner"].get("graph_file")
+        # if graph_file:
+        #     visualize_graph(graph, graph_file)
 
         log_file = kwargs["planner"].get("log_file")
         if log_file:

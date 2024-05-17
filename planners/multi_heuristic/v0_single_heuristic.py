@@ -109,13 +109,13 @@ def plan(plan_policy, model, initial_state, goal, max_steps=20):
     while not plan_policy.is_done() and steps < max_steps:
         curr_model = graph.nodes[hash(selected_state)]["model"]
         # Propose actions
-        actions = plan_policy.propose_actions(graph, curr_model, selected_state, plan)
+        actions = plan_policy.propose_actions(graph, curr_model, selected_state, plan, 'sokoban')
         if type(actions) == dict:
             # For state+action proposal
             selected_state = actions["state"]
             actions = actions["actions"]
         # Compute the next states to add as nodes in the graph with directed action edges from the current state
-        plan_policy.compute_next_states(graph, curr_model, selected_state, actions, goal)
+        plan_policy.compute_next_states(graph, curr_model, selected_state, actions, 'sokoban')
         # Select next state
         selected_state = plan_policy.select_state(graph, plan, goal)
         steps += 1

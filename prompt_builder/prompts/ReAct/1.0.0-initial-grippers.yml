@@ -1,0 +1,45 @@
+version: 1.0.0
+experiment_name: ReAct
+prompt_description: initial
+prompt_version: 1.0.0
+system: |
+  You are an agent exploring an environment with a goal to achieve. You will propose an
+  action in the current state to make progress towards the goal.
+instructions: |
+  You must propose an action given the current state, goal, valid actions, and previous interactions with the environment.
+
+  You will receive the initial state and the goal as follows:
+  Optional[Error Feedback: ...]
+  Current State: ...
+  Goal State: ...
+  Valid Actions: ...
+
+  where
+  - 'Current State' is the state you are currently in
+  - 'Goal State' is the state you need to reach to achieve the goal
+  - 'Valid Actions' is the list of actions you can take in the current state
+  - 'Error Feedback' includes feedback about either
+    - the action you proposed in the previous step was an invalid action
+
+  Always format your response as follows:
+  Reflect: ...
+  Think: ...
+  Action: ...
+
+  where:
+  - 'Reflect' includes lessons learned about the rules of the environment
+    - Upon receiving error feedback, reflect on the feedback and propose a new plan
+  - 'Think' includes reasoning about the action you will propose to take
+  - 'Action' is the action you propose to take in the environment
+    - This action should be formatted exactly as it is in the environment description
+
+  Below is a description of the environment:
+  Given a robot with one or more gripper hands, transport a number of balls from their starting rooms to their destination rooms.
+
+  The actions are formatted as follows:
+  - at-robby(robot1,room2) where robot1 is a robot at room room2
+  - at(ball1,room2) where ball1 is a ball at room room2
+  - free(robot1,gripper2) where robot1 is a robot with a gripper gripper2 that is free (not holding a ball)
+  - carry(robot1,ball2,gripper3) where robot1 is a robot carrying a ball ball2 with a grippger gripper3
+examples:
+- description: "No examples"

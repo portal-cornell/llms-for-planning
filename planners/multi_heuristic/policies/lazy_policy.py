@@ -162,8 +162,15 @@ class LazyPolicy(PlanPolicy):
         if self.cheap:
             return utils.get_actions_to_propose_cheap(graph, model, state)
         return utils.get_actions_to_propose(graph, model, state)
+
+    def prompt_for_state(self, state, domain, model, is_goal):
+        if domain == 'sokoban':
+            return utils.pretty_pddl_state(state, domain, model, is_goal)
+        else:
+            state_str = utils.pretty_pddl_state(state, domain, model, is_goal)
+            return self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])[0]
     
-    def propose_actions(self, graph, model, state, plan):
+    def propose_actions(self, graph, model, state, plan, domain):
         """Proposes an action(s) to take in order to reach the goal.
         
         Parameters:
@@ -197,8 +204,9 @@ class LazyPolicy(PlanPolicy):
             if self.state_descriptions.get(visited_state_hash):
                 state_description = self.state_descriptions[visited_state_hash]
             else:
-                state_str = model.state_to_str(visited_state)
-                state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])
+                # state_str = utils.pretty_pddl_state(visited_state, domain, model)
+                # state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])
+                state_description = self.prompt_for_state(visited_state, domain, model, False)
                 self.state_descriptions[visited_state_hash] = state_description
             visited_state_description += f"{action}:\n{state_description}\n"
         self.action_and_visited_state = [] # Reset visited states
@@ -208,20 +216,22 @@ class LazyPolicy(PlanPolicy):
         if self.state_descriptions.get(initial_state_hash):
             initial_state_description = self.state_descriptions[initial_state_hash]
         else:
-            state_str = model.state_to_str(self.initial_state)
-            initial_state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])
+            # state_str = utils.pretty_pddl_state(self.initial_state, domain, model)
+            # initial_state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])
+            initial_state_description = self.prompt_for_state(self.initial_state, domain, model, False)
             self.state_descriptions[initial_state_hash] = initial_state_description
         
         # Valid Actions: ...
-        valid_actions = model.get_valid_actions(state)
+        valid_actions = [utils.pretty_pddl_actions(str(a), domain) for a in model.get_valid_actions(state)]
         valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
 
         # Goal State: ...
         if self.goal_description:
             goal_description = self.goal_description
         else:
-            goal_description = model.goal_to_str(state, self.goal)
-            goal_description, _ = self._prompt_llm(goal_description, self.state_translation_prompt_params, history=[])
+            # goal_description = utils.pretty_pddl_state(self.goal, domain, model, True)
+            # goal_description, _ = self._prompt_llm(goal_description, self.state_translation_prompt_params, history=[])
+            goal_description = self.prompt_for_state(self.goal, domain, model, True)
             self.goal_description = goal_description
         
         action_plan_proposal_prompt += f"\nStates Visited:\n{visited_state_description}\n"
@@ -246,7 +256,10 @@ class LazyPolicy(PlanPolicy):
             self.chat_history.append(action_plan_proposal_response)
             return []
         action_sequence_str = action_sequence_match.group(1)
-        action_sequence_list = [action.replace(" ", "") for action in action_sequence_str.split(", ")]
+        if domain == 'sokoban':
+            action_sequence_list = action_sequence_str.split('; ')
+        else:
+            action_sequence_list = [action.replace(" ", "") for action in action_sequence_str.split(', ')]
 
         # Extract reflect
         reflect_regex = r"Reflect:\s*(.+)"
@@ -259,7 +272,7 @@ class LazyPolicy(PlanPolicy):
         self.action_sequence = action_sequence_list
         return action_sequence_list
     
-    def compute_next_states(self, graph, model, current_state, actions):
+    def compute_next_states(self, graph, model, current_state, actions, domain):
         """Computes the next states and updates the graph.
 
         Parameters:
@@ -285,7 +298,8 @@ class LazyPolicy(PlanPolicy):
             model_copy = deepcopy(curr_model)
             curr_model = model_copy
             # Get valid action
-            valid_actions = model_copy.get_valid_actions(curr_state)
+            valid_actions = model.get_valid_actions(curr_state)
+            valid_actions_converted = [utils.pretty_pddl_actions(str(a), domain) for a in valid_actions]
             # # Parse action like stack(a:default,b:default) and pick-up(a:default) to stack(a,b) and pick-up(a)
             # typeless_action_regex = r"(\w+)\((.*)\)"
             # typeless_action_match = re.match(typeless_action_regex, action)
@@ -295,13 +309,12 @@ class LazyPolicy(PlanPolicy):
             #     split_args = action_args.split(',')
             #     action_args = [arg.split(':')[0] for arg in split_args]
             #     typeless_action = f"{action_name}({','.join(action_args)})"
-
-            matching_action = list(filter(lambda x: str(x) == action, valid_actions))
-            if len(matching_action) == 0:
-                valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
+            filtered = list(filter(lambda tup: tup[1] == action, enumerate(valid_actions_converted)))
+            if len(filtered) == 0:
+                valid_actions_str = "\n".join([f"- {action}" for action in valid_actions_converted])
                 self.action_plan_feedback_msg = f"The action '{action}' at index {i} was invalid. Below are the actions that were valid at that state:\n{valid_actions_str}"
                 return
-            matching_action = matching_action[0]
+            matching_action = valid_actions[filtered[0][0]]
             # Simulate action
             next_state, _, _, _, _ = model_copy.env.step(matching_action)
             graph.add_node(hash(next_state), state=next_state, model=model_copy)
@@ -314,7 +327,7 @@ class LazyPolicy(PlanPolicy):
             unsatisfied_predicates = []
             for literal in self.goal.literals:
                 if literal not in next_state.literals:
-                    unsatisfied_predicates.append(str(literal))
+                    unsatisfied_predicates.append(utils.translate_literal(str(literal), domain))
             unsatisfied_predicates_str = "\n".join([f"- {predicate}" for predicate in unsatisfied_predicates])
             self.action_plan_feedback_msg = f"The action sequence did not reach the goal. Below are the predicates that were not satisfied:\n{unsatisfied_predicates_str}"
 

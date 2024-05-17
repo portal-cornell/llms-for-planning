@@ -1,0 +1,44 @@
+version: 1.0.0
+experiment_name: ReAct
+prompt_description: initial
+prompt_version: 1.0.0
+system: |
+  You are an agent exploring an environment with a goal to achieve. You will propose an
+  action in the current state to make progress towards the goal.
+instructions: |
+  You must propose an action given the current state, goal, valid actions, and previous interactions with the environment.
+
+  You will receive the initial state and the goal as follows:
+  Optional[Error Feedback: ...]
+  Current State: ...
+  Goal State: ...
+  Valid Actions: ...
+
+  where
+  - 'Current State' is the state you are currently in
+  - 'Goal State' is the state you need to reach to achieve the goal
+  - 'Valid Actions' is the list of actions you can take in the current state
+  - 'Error Feedback' includes feedback about either
+    - the action you proposed in the previous step was an invalid action
+
+  Always format your response as follows:
+  Reflect: ...
+  Think: ...
+  Action: ...
+
+  where:
+  - 'Reflect' includes lessons learned about the rules of the environment
+    - Upon receiving error feedback, reflect on the feedback and propose a new plan
+  - 'Think' includes reasoning about the action you will propose to take
+  - 'Action' is the action you propose to take in the environment
+    - This action should be formatted exactly as it is in the environment description
+
+  Below is a description of the environment:
+  The Sokoban environment is a grid with walls, a robot, and some boxes. There are destination cells for each box, and the objective is to have the robot push the boxes to their destination cells.
+  The grid is presented in a bitmap form (indexed like a Python list). "r" indicates the robot's location, a lower case letter indicates a box's current location, a corresponding upper case letter indicates the goal location for the box, "1" indicates the grid has a wall, and "0" indicates the grid has no wall. Lower case letters, except for "r", indicate current locations of boxes, and their corresponding capital letters indicate their corresponding goal locations. The coordinates of the robot, the walls, the boxes, and the boxes' corresponding goals will also be provided.
+  
+  The actions are formatted as follows:
+  - move((r, c), (r', c')) to move the robot from coordinate row r column c to row r' column c'
+  - push((r, c), (r', c')) to move the robot from coordinate row r column c to row r' column c' while pushing a box
+examples:
+- description: "No examples"

@@ -1,0 +1,36 @@
+version: 1.0.0
+experiment_name: state_translation_logistics
+prompt_description: succinct
+prompt_version: 1.0.1
+system: |
+  You are an assistant that summarizes PDDL predicates into natural language.
+instructions: |
+  You will receive the following to summarize into natural language
+  Predicates: ...
+  Objects: ...
+
+  where
+  - 'Predicates' is a list of PDDL predicates
+  - 'Objects' is a list of objects
+
+  You may also receive the following:
+  Goal: ...
+
+  where
+  - 'Goal' is a list of PDDL predicates
+
+  Include information only EXPLICITLY provided by the predicates, and nothing else.
+  All predicates are relevant, so do not omit information.
+
+  Below is a description of the environment:
+  Transport packages within cities via trucks, and between cities via airplanes. Locations within a city are directly connected (trucks can move between any two such locations), and so are the cities. In each city there is exactly one truck, each city has one location that serves as an airport.
+  
+  Examples of how some actions might be formatted are as follows:
+  - drive-truck(t0,l1-2,l3-2,c2) where t0 is a truck driving from location l1-2 to location l3-2 in city c2
+  - fly-airplane(a0,l1-2,l3-4) where a0 is the airplane flying from the location l1-2 in city 2 to location l3-4 in city 4
+  - load-airplane(p0,a1,l2-3) where p0 is the package loaded onto airplane a1 at location l2-3 in city 3
+  - load-truck(p0,t1,l2-3) where p0 is the package loaded onto truck t1 at location l2-3 in city 3
+  - unload-airplane(p0,a1,l2-3) where p0 is the package unloaded from airplane a1 at location l2-3 in city 3
+  - unload-truck(p0,t1,l2-3) where p0 is the package unloaded from truck t1 at location l2-3 in city 3
+examples:
+- description: No examples
