@@ -9,12 +9,15 @@ To run this script on an example, run the following command in the terminal:
 """
 import os
 from omegaconf import DictConfig, OmegaConf
+from copy import deepcopy
 import hydra
+import dill as pickle
 import json
 import random
 import re
 from tqdm import tqdm
 import shutil
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from prompt_builder.constants import PROMPT_HISTORY_PATH
 from prompt_builder.prompt_llm import prompt_llm, get_accumulated_cost
@@ -198,6 +201,46 @@ def log_planner_results(log_file, optimal_plan, statistics):
             f.write(f"Optimal plan: {json.dumps(str_optimal_plan)}\n")
             f.write("\n")
 
+def planning_loop(i, cfg, model, instance_dir, kwargs):
+    instance_obj = model.env.problems[i]
+    setup_instance_logging_directory(instance_obj, instance_dir, cfg, kwargs)
+    model.env.fix_problem_index(i)
+    initial_state, _ = model.env.reset()
+    if cfg.planner.plan_policy == "fd":
+        log_file = kwargs["planner"].get("log_file")
+        optimal_plan, statistics = pddlgym_utils.get_optimal_plan(model.env.domain, initial_state)
+        log_planner_results(log_file, optimal_plan, statistics)
+        return None, None
+    plan_policy = NAME_TO_POLICY[cfg.planner.plan_policy](kwargs)
+    goal = initial_state.goal
+    reached_goal, action_sequence, graph = plan(plan_policy, model, initial_state, goal, cfg.planner.max_steps)
+    
+    # Get optimal plan
+    optimal_plan, statistics = pddlgym_utils.get_optimal_plan(model.env.domain, initial_state)
+
+    log_file = kwargs["planner"].get("log_file")
+    if log_file:
+        with open(log_file, "a") as f:
+            f.write("\n\n")
+            f.write(f"Reached goal: {reached_goal}\n")
+            str_action_sequence = [str(action) for action in action_sequence]
+            f.write(f"Action sequence: {json.dumps(str_action_sequence)}\n")
+            f.write(f"Total nodes expanded: {len(graph.nodes)}\n")
+            f.write(f"Total edges expanded: {len(graph.edges)}\n")
+            str_optimal_plan = [str(action) for action in optimal_plan]
+            f.write(f"Optimal plan: {json.dumps(str_optimal_plan)}\n")
+            f.write("\n")
+    logging.info(f"Accumulated cost: {get_accumulated_cost()}")
+    
+    graph_file = kwargs["planner"].get("graph_file")
+
+    if graph_file:
+        # TODO: Incorporate into Hydra configuration
+        graph_pkl = os.path.splitext(graph_file)[0] + ".pkl"
+        with open(graph_pkl, "wb") as f:
+            pickle.dump(graph, f)
+    return graph, graph_file
+
 @hydra.main(version_base="1.2", config_path="conf", config_name="config")
 def run_planner(cfg: DictConfig) -> None:
     """Run a planner on an environment specified in the configuration.
@@ -234,44 +277,21 @@ def run_planner(cfg: DictConfig) -> None:
     num_problems = len(model.env.problems)
     instances = min(cfg.planner.samples, num_problems)
     instance_idx = random.sample(range(num_problems), instances)
-    for i in tqdm(instance_idx):
-        instance_obj = model.env.problems[i]
-        setup_instance_logging_directory(instance_obj, instance_dir, cfg, kwargs)
-        model.env.fix_problem_index(i)
-        initial_state, _ = model.env.reset()
-        if cfg.planner.plan_policy == "fd":
-            log_file = kwargs["planner"].get("log_file")
-            optimal_plan, statistics = pddlgym_utils.get_optimal_plan(model.env.domain, initial_state)
-            log_planner_results(log_file, optimal_plan, statistics)
-            continue
-        plan_policy = NAME_TO_POLICY[cfg.planner.plan_policy](kwargs)
-        goal = initial_state.goal
-        reached_goal, action_sequence, graph = plan(plan_policy, model, initial_state, goal, cfg.planner.max_steps)
-        
-        # Get optimal plan
-        optimal_plan, statistics = pddlgym_utils.get_optimal_plan(model.env.domain, initial_state)
-        print(statistics['num_node_expansions'])
+    if cfg.planner.get("multi_threaded", False):
+        with ThreadPoolExecutor(max_workers=cfg.planner.get("num_workers", 5)) as executor:
+            worker = lambda i: planning_loop(i, deepcopy(cfg), deepcopy(model), instance_dir, deepcopy(kwargs))
+            futures = [executor.submit(worker, i) for i in instance_idx]
+            for future in as_completed(futures):
+                graph, graph_file = future.result()
+                if graph_file:
+                    visualize_graph(graph, graph_file)
+    else:
+        for i in tqdm(instance_idx):
+            graph, graph_file = planning_loop(i, cfg, model, instance_dir, kwargs)
+            if graph_file:
+                visualize_graph(graph, graph_file)
 
-        graph_file = kwargs["planner"].get("graph_file")
-        if graph_file:
-            visualize_graph(graph, graph_file)
-
-        log_file = kwargs["planner"].get("log_file")
-        if log_file:
-            with open(log_file, "a") as f:
-                f.write("\n\n")
-                f.write(f"Reached goal: {reached_goal}\n")
-                str_action_sequence = [str(action) for action in action_sequence]
-                f.write(f"Action sequence: {json.dumps(str_action_sequence)}\n")
-                f.write(f"Total nodes expanded: {len(graph.nodes)}\n")
-                f.write(f"Total edges expanded: {len(graph.edges)}\n")
-                str_optimal_plan = [str(action) for action in optimal_plan]
-                f.write(f"Optimal plan: {json.dumps(str_optimal_plan)}\n")
-                f.write("\n")
-        logging.info(f"Accumulated cost: {get_accumulated_cost()}")
-
-    cfg.planner.log_file = log_file
-    log_name = os.path.basename(log_file)
+    log_name = os.path.basename(cfg.planner.log_file)
     create_results_csv(log_name)
 
 if __name__ == "__main__":

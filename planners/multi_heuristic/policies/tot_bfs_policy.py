@@ -205,7 +205,7 @@ class ToTBFSPolicy(PlanPolicy):
                 matching_state_actions.append((candidate_state, valid_actions))
                 i += 1
                 feedback_steps = 0
-                self._write_to_log(self.log_file, f"ACTIONS PROPOSAL {i+1} PROMPT\n" + "-"*20)
+                self._write_to_log(self.log_file, f"ACTIONS PROPOSAL {i} PROMPT\n" + "-"*20)
                 self._write_to_log(self.log_file, "[Skip LLM] The number of valid actions is less than the number of actions requested.")
                 self._write_to_log(self.log_file, f"Actions:\n{valid_actions_str}\n")
                 continue

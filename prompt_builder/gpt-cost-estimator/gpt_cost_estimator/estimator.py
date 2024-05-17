@@ -1,5 +1,6 @@
 from tqdm.notebook import tqdm
 import functools
+import threading
 from lorem_text import lorem
 from .utils import num_tokens_from_messages
 
@@ -36,6 +37,7 @@ class CostEstimator:
     }
 
     total_cost = 0.0  # class variable to persist total_cost
+    cost_lock = threading.Lock()
 
     def __init__(self) -> None:
         self.default_model = "gpt-3.5-turbo-0125"
@@ -81,10 +83,10 @@ class CostEstimator:
             input_cost = input_tokens * self.PRICES[model]['input'] / 1000
             output_cost = output_tokens * self.PRICES[model]['output'] / 1000
             cost = input_cost + output_cost
-            CostEstimator.total_cost += cost  # update class variable
 
-
-            # Display progress bar and cost with tqdm
-            tqdm.write(f"Cost: ${cost:.4f} | Total: ${CostEstimator.total_cost:.4f}", end='\r')
+            # Cost update thread-safe
+            with CostEstimator.cost_lock:
+                CostEstimator.total_cost += cost
+                tqdm.write(f"Cost: ${cost:.4f} | Total: ${CostEstimator.total_cost:.4f}", end='\r')
             return mock_output_messages if mock else response
         return wrapper
