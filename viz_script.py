@@ -26,6 +26,53 @@ def plot_bar_graph_reached_goal(df, title, save_path):
     plt.title(title)
     plt.savefig(os.path.join(save_path, "reached_goal_results.png"))
 
+def get_stats(log_dir, results_csv, log_file, hydra_log_file):
+    """Returns the statistics for the log files.
+    
+    Parameters:
+        log_dir (str)
+            The directory containing the log files.
+        results_csv (str)
+            The name of the results CSV.
+        log_file (str)
+            The name of the log file.
+        hydra_log_file (str)
+            The name of the Hydra log file.
+    
+    Returns:
+        df (pd.DataFrame)
+            The DataFrame containing the results.
+        llm_calls (int)
+            The number of LLM calls.
+        llm_token_usage (int)
+            The number of LLM tokens used.
+    """
+    df = pd.DataFrame()
+    llm_calls = 0
+    llm_token_usage = 0
+    for dirpath, dirnames, filenames in os.walk(log_dir):
+        for filename in filenames:
+            if filename == results_csv:
+                csv_file = os.path.join(dirpath, filename)
+                with open(csv_file, "r") as f:
+                    new_df = pd.read_csv(f)
+                    df = pd.concat([df, new_df], ignore_index=True)
+            elif filename == log_file:
+                curr_log_file = os.path.join(dirpath, filename)
+                with open(curr_log_file, "r") as f:
+                    log = f.readlines()
+                llm_calls += sum(["RESPONSE" in line for line in log]) # Sum True values
+            elif filename == hydra_log_file:
+                curr_hydra_log_file = os.path.join(dirpath, filename)
+                with open(curr_hydra_log_file, "r") as f:
+                    hydra_log = f.readlines()
+                regex = re.compile(r"Prompt Tokens: (\d+)")
+                for line in hydra_log:
+                    match = regex.search(line)
+                    if match:
+                        llm_token_usage += int(match.group(1))
+    return df, llm_calls, llm_token_usage
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--log_dir", type=str, required=True, help="The directory containing the log files.")
@@ -37,30 +84,7 @@ if __name__ == "__main__":
     parser.add_argument("--title", type=str, help="[bar_graph_reached_goal] The title of the graph.")
     args = parser.parse_args()
 
-    df = pd.DataFrame()
-    llm_calls = 0
-    llm_token_usage = 0
-    for dirpath, dirnames, filenames in os.walk(args.log_dir):
-        for filename in filenames:
-            if filename == args.results_csv:
-                csv_file = os.path.join(dirpath, filename)
-                with open(csv_file, "r") as f:
-                    new_df = pd.read_csv(f)
-                    df = pd.concat([df, new_df], ignore_index=True)
-            elif filename == args.log_file:
-                log_file = os.path.join(dirpath, filename)
-                with open(log_file, "r") as f:
-                    log = f.readlines()
-                llm_calls += sum(["RESPONSE" in line for line in log]) # Sum True values
-            elif filename == args.hydra_log_file:
-                hydra_log_file = os.path.join(dirpath, filename)
-                with open(hydra_log_file, "r") as f:
-                    hydra_log = f.readlines()
-                regex = re.compile(r"Prompt Tokens: (\d+)")
-                for line in hydra_log:
-                    match = regex.search(line)
-                    if match:
-                        llm_token_usage += int(match.group(1))
+    df, llm_calls, llm_token_usage = get_stats(args.log_dir, args.results_csv, args.log_file, args.hydra_log_file)
 
     if "bar_graph_reached_goal" in args.viz_types:
         plot_bar_graph_reached_goal(df, args.title, args.log_dir)
