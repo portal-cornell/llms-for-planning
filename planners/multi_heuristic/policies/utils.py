@@ -142,12 +142,51 @@ def map_llm_action_sokoban(action_str):
     
     return parsed_action
 
+def convert_game_states_to_bitmap(state):
+    max_grid_dim = 2
+    tile_letters = string.ascii_lowercase
+    tile_coords = {}
+    for literal in state.literals:
+        literal_str = str(literal)
+        if literal_str.startswith('neighbor'):
+            regex = 'neighbor\(p_([0-9])_([0-9]):position,p_([0-9])_([0-9]):position\)'
+            m = re.search(regex, literal_str)
+            r_1, c_1, r_2, c_2 = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4))
+            max_grid_dim = max([max_grid_dim, r_1, c_1, r_2, c_2])
+        elif literal_str.startswith('at'):
+            regex = 'at\(t_([0-9]):tile,p_([0-9])_([0-9]):position\)'
+            m = re.search(regex, literal_str)
+            tile_ind, r, c = int(m.group(1)), int(m.group(2)), int(m.group(3))
+            max_grid_dim = max([max_grid_dim, r, c])
+            tile_coords[tile_letters[tile_ind]] = (r - 1, c - 1)
+    
+    bitmap = [['_'] * max_grid_dim for _ in range(max_grid_dim)]
+    for tile_letter, (r, c) in tile_coords.items():
+        bitmap[r][c] = tile_letter
+    
+    s = 'Bitmap representation:\n'
+    for r, row in enumerate(bitmap):
+        for c, cell in enumerate(row):
+            s += str(cell)
+        s += '\n'
+    s += '\nCoordinate representation:\n'
+    for tile_letter, tup in tile_coords.items():
+        s += f'{tile_letter}: {tup}\n'
+
+    return s
+
 def pretty_pddl_state(state, domain, model, is_goal=False):
     if domain == 'logistics':
-        state_str = model.state_to_str(state)
+        if not is_goal:
+            state_str = model.state_to_str(state)
+        else:
+            state_str = model.goal_to_str([], state)
         return state_str.replace(':default', '')
     elif domain == 'grippers':
-        state_str = model.state_to_str(state)
+        if not is_goal:
+            state_str = model.state_to_str(state)
+        else:
+            state_str = model.goal_to_str([], state)
         for s in ['robot', 'object', 'gripper', 'room']:
             state_str = state_str.replace(f':{s}', '')
         return state_str
@@ -162,8 +201,13 @@ def pretty_pddl_state(state, domain, model, is_goal=False):
         return f"Goal: {', '.join(literals)}"
     elif domain == 'sokoban':
         return convert_states_to_bitmap_sokoban(state, is_goal)
+    elif domain == 'game':
+        return convert_game_states_to_bitmap(state)
     else:
-        return model.state_to_str(state)
+        if not is_goal:
+            state_str = model.state_to_str(state)
+        else:
+            state_str = model.goal_to_str([], state)
 
 def translate_literal(literal, domain):
     if domain in ['logistics', 'hanoi']:
@@ -175,6 +219,12 @@ def translate_literal(literal, domain):
     elif domain == 'sokoban':
         box, r, c = get_box_info(str(literal))
         return f'box {string.ascii_lowercase[box]} at {(r,c)}'
+    elif domain == 'game':
+        tile_letters = string.ascii_lowercase
+        regex = 'at\(t_([0-9]):tile,p_([0-9])_([0-9]):position\)'
+        m = re.search(regex, literal)
+        tile_ind, r, c = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        return f'tile {tile_letters[tile_ind]} at {(r-1, c-1)}'
     else:
         return literal
 
@@ -183,8 +233,8 @@ def pretty_pddl_actions(action_str, domain):
         return action_str.replace(':default', '')
     elif domain == 'grippers':
         for s in ['robot', 'object', 'gripper', 'room']:
-            state_str = state_str.replace(f':{s}', '')
-        return state_str
+            action_str = action_str.replace(f':{s}', '')
+        return action_str
     elif domain == "hanoi":
         return action_str.replace(':default', '')
     elif domain == 'sokoban':
@@ -198,5 +248,10 @@ def pretty_pddl_actions(action_str, domain):
             m = re.search(regex, action_str)
             start_r, start_c, end_r, end_c = m.group(1), m.group(2), m.group(3), m.group(4)
             return f"push(({start_r}, {start_c}), ({end_r}, {end_c}))"
+    elif domain == 'game':
+        regex = 'move\(t_([0-9]):tile,p_([0-9])_([0-9]):position,p_([0-9])_([0-9]):position\)'
+        m = re.search(regex, action_str)
+        tire_letter_ind, start_r, start_c, end_r, end_c = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)), int(m.group(5))
+        return f'move({string.ascii_lowercase[tire_letter_ind]},({start_r-1},{start_c-1}),({end_r-1},{end_c-1}))'
     else:
         return action_str

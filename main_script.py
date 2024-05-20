@@ -246,7 +246,7 @@ def run_planner(cfg: DictConfig) -> None:
             continue
         plan_policy = NAME_TO_POLICY[cfg.planner.plan_policy](kwargs)
         goal = initial_state.goal
-        reached_goal, action_sequence, graph = plan(plan_policy, model, initial_state, goal, cfg.planner.max_steps)
+        reached_goal, action_sequence, graph = plan(plan_policy, model, initial_state, goal, cfg.planner.max_steps, cfg.domain)
         
         # Get optimal plan
         optimal_plan, statistics = pddlgym_utils.get_optimal_plan(model.env.domain, initial_state)

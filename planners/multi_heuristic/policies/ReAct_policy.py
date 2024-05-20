@@ -135,6 +135,7 @@ class ReActPolicy(PlanPolicy):
             - Prompts the LLM to describe the initial state and goal state.
         """
         # Generate initial state description
+        self.next_state = initial_state
         self.goal = goal
         return None
     

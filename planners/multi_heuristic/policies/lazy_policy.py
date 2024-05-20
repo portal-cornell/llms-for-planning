@@ -164,7 +164,7 @@ class LazyPolicy(PlanPolicy):
         return utils.get_actions_to_propose(graph, model, state)
 
     def prompt_for_state(self, state, domain, model, is_goal):
-        if domain == 'sokoban':
+        if domain in ['sokoban', 'game']:
             return utils.pretty_pddl_state(state, domain, model, is_goal)
         else:
             state_str = utils.pretty_pddl_state(state, domain, model, is_goal)
@@ -256,7 +256,7 @@ class LazyPolicy(PlanPolicy):
             self.chat_history.append(action_plan_proposal_response)
             return []
         action_sequence_str = action_sequence_match.group(1)
-        if domain == 'sokoban':
+        if domain in ['sokoban', 'game']:
             action_sequence_list = action_sequence_str.split('; ')
         else:
             action_sequence_list = [action.replace(" ", "") for action in action_sequence_str.split(', ')]
