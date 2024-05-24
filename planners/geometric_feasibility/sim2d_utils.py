@@ -3,7 +3,8 @@ import imageio
 import gym
 import random
 
-from grocery_bot_simulator import planning_sims
+import planning_sims
+
 
 def make_sim2d_env(render_mode="human"):
     """Returns the Sim2D environment.
@@ -33,6 +34,10 @@ def check_collision(env, action):
     """
     env_copy = deepcopy(env)
     _, _, _, _, info = env_copy.step(action)
+    if info.get("collision") is not None:
+        print(f"[+] Detected collision: {action}")
+    else:
+        print(f"[-] No collision: {action}")
     return info.get("collision") is not None
 
 def get_location_bboxs():

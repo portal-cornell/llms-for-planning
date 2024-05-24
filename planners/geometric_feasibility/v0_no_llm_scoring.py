@@ -165,7 +165,7 @@ def parse_language_skill(language_skill):
     loc_name = loc_name.strip("'")
     loc_name = loc_name.strip('"')
     object_dict = PERCEPTION_CONSTANTS["objects"][obj_name]
-    object_bbox = (-1, -1, object_dict["width"], object_dict["height"])
+    object_bbox = (-1, -1, -1, object_dict["width"], object_dict["height"], object_dict["depth"])
     location_bbox = PERCEPTION_CONSTANTS["location_bboxs"][loc_name]
     return ("pickandplace", (obj_name, object_bbox, location_bbox))
 
@@ -183,6 +183,11 @@ def generate_plan(text_plan):
     # Split the text plan into high-level language skills
     high_level_plan = []
     for language_skill in text_plan.split("\n"):
+        if '#' in language_skill:
+            idx = language_skill.index('#')
+            language_skill = language_skill[:idx] 
+        if (language_skill + "\n").isspace() or ('pickandplace(' not in language_skill):
+            continue
         try:
             skill = parse_language_skill(language_skill)
             high_level_plan.append(skill)
@@ -234,7 +239,7 @@ def score_sample(env, sample, sample_locs):
     if collision: return -float("inf")
     score = 1
     # Average packing space left score
-    score += average_packing_space_left(env, sample, sample_locs)
+    # score += average_packing_space_left(env, sample, sample_locs)
     # Number of objects in fridge
     score += env.n_shapes
     return score
@@ -289,13 +294,14 @@ def plan(env, num_plans, beam_size, num_samples, text_plans=[], perception_value
         beam = [(0, ())] * beam_size
         
         for skill in high_level_plan:
+            print(f"======= {skill=}")
             skill_name, params = skill
             assert skill_name == "pickandplace"
             object_name, object_bbox, location_bbox = params
-            _, _, o_w, o_h = object_bbox
-            o_color = PERCEPTION_CONSTANTS["objects"][object_name]["color"]
+            _, _, _, o_w, o_h, o_d = object_bbox
+            o_color = PERCEPTION_CONSTANTS["objects"][object_name].get("color")
             o_img_path = PERCEPTION_CONSTANTS["objects"][object_name].get("image_path")
-            l_x1, l_y1, l_w, _ = location_bbox
+            l_x1, l_y1, l_z1, l_w, l_y, l_d = location_bbox
             candidates = []
             candidates.extend(beam)
             for score, action_sequence in beam:
@@ -305,9 +311,14 @@ def plan(env, num_plans, beam_size, num_samples, text_plans=[], perception_value
                 for action in action_sequence:
                     beam_env.step(action)
                 # Sample and score C candidate actions from each element on the beam
-                sample_xs = list(np.linspace(l_x1, l_x1 + l_w, num_samples)) # Sample x
+                sample_xs = list(np.linspace(l_x1 + o_w/2.0, l_x1 + l_w - o_w/2.0, num_samples)) # Sample x
+                sample_y = l_y1
+                sample_z = -0.04
+                # sample_y = l_y1
+                # sample_z = l_z1  # Shelf z location - 1/8 of the shelf depth (Negative is going into the fridge)
                 for sample_x in sample_xs:
-                    sample_action = (sample_x, l_y1, o_w, o_h, o_color) # Convert to action (x, y, w, h)
+                    sample_action = (sample_x, sample_y, sample_z, o_w, o_h, o_d) # Convert to action (x, y, w, h)
+                    sample_action = sample_action + (o_color,) if o_color else sample_action
                     sample_action = sample_action + (o_img_path,) if o_img_path else sample_action
                     sample_score = score + score_sample(beam_env, sample_action, sample_xs) # Score
                     sample_action_sequence = action_sequence + (sample_action,)

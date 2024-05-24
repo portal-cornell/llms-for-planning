@@ -1,0 +1,107 @@
+version: 1.0.0
+experiment_name: grocery_bot_plan
+prompt_description: space-aware
+prompt_version: 1.0.3
+system: |
+  You are an assistant that comes up with a plan for putting items into a fridge given a list of items and a human's preference.
+instructions: |
+  You must analyze a human's preferences and then come up with a plan to put items into a fridge.
+  
+  The items will be provided as a list of names. The locations will also be provided as a list of names.
+
+  The initial state of the fridge will be provided as a dictionary whose keys are the locations in the
+  fridge and the values are a list of items currently in that location. If the dictionary is empty,
+  then the fridge is empty.
+
+  The human's preference is a description of their preferences for where they like things in a fridge.
+
+  A plan is a series of skills that you will use to put items into a fridge. The only skill is:
+  - `pickandplace(item, location)`: This skill takes an item and a location and puts the item in the location in the fridge.
+
+  When creating a plan, consider that a fridge has limited space, and it is not possible to place many objects in a single location. In such a case, you shold consider alternative locations to place an object.
+  - A side of a shelf that has more than one object there should not be used in a plan to place more objects.
+
+  Your plan should begin with a comment that explains the reasoning for your plan along with your carefully consideration of the objects already in the fridge and their locations for the sake of not placing objects in the same spaces.
+examples:
+- description: Categorical description
+- observation: |
+    Objects: ["milk", "cheese", "apple", "orange"]
+    Locations: ["top shelf", "middle shelf", "bottom shelf"]
+    Initial State: {}
+    Preference: "I like putting dairy on the top shelf and fruits on the middle shelf."
+- response: |
+    # Reasoning: Milk and cheese are dairy and can fit on the top shelf. Apples and oranges are fruits and can fit on the middle shelf.
+    pickandplace("milk", "top shelf")
+    pickandplace("cheese", "top shelf")
+    pickandplace("apple", "middle shelf")
+    pickandplace("orange", "middle shelf")
+- description: Size-based description
+- observation: |
+    Objects: ["milk", "cheese", "apple", "watermelon"]
+    Locations: ["top shelf", "middle shelf", "bottom shelf"]
+    Initial State: {}
+    Preference: "I like putting big items on the bottom shelf and small items on the top shelf."
+- response: |
+    # Reasoning: Since the preference is for large objects on the bottom, the watermelon should go there. The cheese, apple, and milk are smaller and should go to the top shelf.  
+    pickandplace("watermelon", "bottom shelf")
+    pickandplace("milk", "top shelf")
+    pickandplace("cheese", "top shelf")
+    pickandplace("apple", "top shelf")
+- description: Fridge shelf filled up
+- observation: |
+    Objects: ["milk", "cheese", "apple", "watermelon"]
+    Locations: ["top shelf", "middle shelf", "bottom shelf"]
+    Initial State: {
+      "top shelf": ["orange juice", "yogurt", "butter", "eggs", "ketchup"]
+    }
+    Preference: "I don't mind where things go."
+- response: |
+    # Reasoning: The top shelf is likely full, so the objects should be placed on the other shelves.
+    pickandplace("milk", "middle shelf")
+    pickandplace("cheese", "middle shelf")
+    pickandplace("apple", "middle shelf")
+    pickandplace("watermelon", "bottom shelf")
+- description: Fridge shelves with objects of varying size
+- observation: |
+    Objects: ["milk", "cheese", "apple", "melon"]
+    Locations: ["top shelf", "middle shelf", "bottom shelf"]
+    Initial State: {
+      "top shelf": ["yogurt", "butter"],
+      "middle shelf": ["watermelon", "pizza box"]
+    }
+    Preference: "I don't want any of the fridge shelves to be too crowded."
+- response: |
+    # Reasoning: The middle shelf has large objects and is full. There is still some room in the top shelf, so a portion of the items can fit there without getting too crowded. The bottom shelf is empty, so there is space for the apple and melon.
+    pickandplace("milk", "top shelf")
+    pickandplace("cheese", "top shelf")
+    pickandplace("apple", "bottom shelf")
+    pickandplace("melon", "bottom shelf")
+- description: TODO
+- observation: |
+    Objects: ["red bell pepper", "watermelon"]
+    Locations: ["top shelf", "left side of middle shelf", "middle shelf", "right of middle shelf", "bottom shelf"]
+    Initial State: {
+      "top shelf": ["milk", "pear"],
+      "left side of middle shelf": ["lettuce"],
+      "right side of bottom shelf": ["soup can", "pepsi can"]
+    }
+    Preference: "I want my vegetables together, and I like fruits on the right side."
+- response: |
+    # There red bell pepper should go with the one other vegetable on the middle shelf since there is space. The watermelon will go on the middle shelf since the bottom shelf already has 2 objects on it, but on the right side since it's a fruit.
+    pickandplace("red bell pepper", "left of middle shelf")
+    pickandplace("watermelon", "right of middle shelf")
+- description: Side of shelf filled up
+- observation: |
+    Objects: ["ketchup, milk, cheese, apple"]
+    Locations: ["top shelf", "left side of middle shelf", "middle shelf", "right of middle shelf", "bottom shelf"]
+    Initial State: {
+      "top shelf": ["milk"],
+      "left side of middle shelf": ["mustard", "relish"]
+    }
+    Preference: "I like having drinks on the top shelf and condiments on the left side of the middle shelf."
+- response: |
+    # There are already two objects on the left of the middle shelf, so the ketchup can go in the center of the shelf to be close. Milk is a drink and shold go on the top. There is lots of space on the bottom for the rest.
+    pickandplace("ketchup", "middle shelf")
+    pickandplace("milk", "top shelf")
+    pickandplace("cheese", "bottom shelf")
+    pickandplace("apple", "bottom shelf")

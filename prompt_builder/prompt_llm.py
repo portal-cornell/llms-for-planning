@@ -3,6 +3,7 @@ This module acts as a wrapper for OpenAI's chat API.
 """
 import os
 import time
+import json
 
 import openai
 openai.api_key = os.getenv("OPENAI_API_KEY")
