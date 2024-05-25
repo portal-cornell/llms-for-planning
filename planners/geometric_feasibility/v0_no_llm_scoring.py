@@ -21,6 +21,8 @@ import random
 from . import sim2d_utils
 
 FILE_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+# object width: [0.5, 0.75, 0.1, 0.125, 0.15]
+# object height: [0.1, 0.2]
 PERCEPTION_CONSTANTS = {
     "location_bboxs": sim2d_utils.get_location_bboxs(),
     "objects": {
