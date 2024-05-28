@@ -1,7 +1,7 @@
 version: 1.0.0
 experiment_name: grocery_bot_plan
-prompt_description: fridge-initial-state
-prompt_version: 1.0.2
+prompt_description: incorporate-feedback
+prompt_version: 1.0.4
 system: |
   You are an assistant that comes up with a plan for putting items into a fridge given a list of items and a human's preference.
 instructions: |
@@ -17,6 +17,10 @@ instructions: |
 
   A plan is a series of skills that you will use to put items into a fridge. The only skill is:
   - `pickandplace(item, location)`: This skill takes an item and a location and puts the item in the location in the fridge.
+
+  If a previous plan is geometrically infeasible, you will be prompted to generate a new plan. You should continue to satisfy
+  the human's preference while considering alternative locations to place objects that did not fit in the previous plan. Consider
+  rearranging other objects to better satisfy the human's preference in addition to moving objects that did not fit.
 examples:
 - description: Categorical description
 - observation: |
@@ -25,6 +29,7 @@ examples:
     Initial State: {}
     Preference: "I like putting dairy on the top shelf and fruits on the middle shelf."
 - response: |
+    # Reasoning: Milk and cheese are dairy and can fit on the top shelf. Apples and oranges are fruits and can fit on the middle shelf.
     pickandplace("milk", "top shelf")
     pickandplace("cheese", "top shelf")
     pickandplace("apple", "middle shelf")
@@ -36,6 +41,7 @@ examples:
     Initial State: {}
     Preference: "I like putting big items on the bottom shelf and small items on the top shelf."
 - response: |
+    # Reasoning: Since the preference is for large objects on the bottom, the watermelon should go there. The cheese, apple, and milk are smaller and should go to the top shelf.
     pickandplace("watermelon", "bottom shelf")
     pickandplace("milk", "top shelf")
     pickandplace("cheese", "top shelf")
@@ -49,6 +55,7 @@ examples:
     }
     Preference: "I don't mind where things go."
 - response: |
+    # Reasoning: The top shelf is likely full, so the objects should be placed on the other shelves.
     pickandplace("milk", "middle shelf")
     pickandplace("cheese", "middle shelf")
     pickandplace("apple", "middle shelf")
@@ -63,6 +70,37 @@ examples:
     }
     Preference: "I don't want any of the fridge shelves to be too crowded."
 - response: |
+    # Reasoning: The top shelf may have some room for milk and cheese which puts dairy items together. The middle shelf may have some room for the apple and melon which puts fruits together. The shelves will be equally crowded.
+    pickandplace("milk", "top shelf")
+    pickandplace("cheese", "top shelf")
+    pickandplace("melon", "middle shelf")
+    pickandplace("apple", "middle shelf")
+- description: Fridge shelves with objects of varying size
+- observation: |
+    Objects: ["milk", "cheese", "apple", "melon"]
+    Locations: ["top shelf", "middle shelf", "bottom shelf"]
+    Initial State: {
+      "top shelf": ["yogurt", "butter"],
+      "middle shelf": ["watermelon", "pizza box"]
+    }
+    Preference: "I don't want any of the fridge shelves to be too crowded."
+- response: |
+    pickandplace("milk", "top shelf")
+    pickandplace("cheese", "top shelf")
+    pickandplace("apple", "bottom shelf")
+    pickandplace("melon", "bottom shelf")
+- description: Correction of previous plan
+- observation: |
+    Feedback: The previous plan was geometrically infeasible. The items that did not fit were ["melon", "apple"].
+    Objects: ["milk", "cheese", "apple", "melon"]
+    Locations: ["top shelf", "middle shelf", "bottom shelf"]
+    Initial State: {
+      "top shelf": ["yogurt", "butter"],
+      "middle shelf": ["watermelon", "pizza box"]
+    }
+    Preference: "I don't want any of the fridge shelves to be too crowded."
+- response: |
+    # Reasoning: The middle shelf is too crowded. Instead, the apple and melon can be placed on the bottom shelf which is empty.
     pickandplace("milk", "top shelf")
     pickandplace("cheese", "top shelf")
     pickandplace("apple", "bottom shelf")

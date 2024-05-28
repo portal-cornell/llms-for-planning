@@ -6,7 +6,7 @@ To run this script on an example, run the following command in the terminal:
         --experiment_name grocery_bot_plan \
         --prompt_description initial \
         --prompt_version 1.0.0 \
-        --model gpt-4 \
+        --model gpt-4-turbo \
         --temperature 0.7 \
         --seed 0 \
         --num_plans 1 \
@@ -23,7 +23,7 @@ import planners.geometric_feasibility.sim2d_utils as sim2d_utils
 
 from utils import fetch_messages
 
-def generate_sim2d_plan(objs_to_put_away, locations, initial_state_of_fridge, preference, llm_params):
+def generate_sim2d_plan(objs_to_put_away, locations, initial_state_of_fridge, preference, history, feedback, llm_params):
     """Generates a plan for the sim2d environment.
     
     Parameters:
@@ -42,14 +42,17 @@ def generate_sim2d_plan(objs_to_put_away, locations, initial_state_of_fridge, pr
         text_plan (str):
             A string describing the plan to put away the objects.
     """
+    # feedback_msg = "The previous plan was geometrically infeasible. The items that did not fit were ["melon", "apple"]."
     user_prompt = f"""
     Objects: {objs_to_put_away}
     Locations: {locations}
     Initial State: {initial_state_of_fridge}
     Preference: "{preference}"
     """
-    text_plan = prompt_llm(user_prompt, **llm_params)
-    return text_plan
+    feedback = feedback + '\n' if feedback is not None else ''
+    user_prompt = f"{feedback}{user_prompt}" # Add feedback message to user prompt
+    text_plan = prompt_llm(user_prompt, history=history, **llm_params)
+    return user_prompt, text_plan
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
@@ -167,12 +170,31 @@ if __name__ == "__main__":
         "sleep_time": args.sleep_time,
         "debug": args.debug
     }
-    text_plan = generate_sim2d_plan(objs_to_put_away, locations, initial_state_of_fridge, preference, llm_params)
-    print(f"LLM response:\n{text_plan}")
+    history = []
+    best_action_sequence = []
+    best_obj_names = []
+    feedback = None
+    feedback_steps = 4
+    i = 0
+    while len(best_action_sequence) < len(objs_to_put_away) and i < feedback_steps:
+        if i > 0:
+            # Past first iteration, give feedback
+            missing_objects = [obj for obj in objs_to_put_away if obj not in best_obj_names]
+            feedback = f"The previous plan was geometrically infeasible. The items that did not fit were {missing_objects}."
+        user_prompt, text_plan = generate_sim2d_plan(objs_to_put_away, locations, initial_state_of_fridge, preference, history, feedback, llm_params)
+        print(f"LLM Prompt:\n{user_prompt}")
+        history.append(user_prompt)
+        print(f"LLM response:\n{text_plan}")
+        history.append(text_plan)
 
-    env = sim2d_utils.make_sim2d_env(render_mode="rgb_array") # TODO(chalo2000): Allow setting environment to initial state
-    # TODO(chalo2000): Make planner take in model which contains plan generation and skill extraction
-    best_action_sequence = plan(env, args.num_plans, args.beam_size, args.num_samples, text_plans=[text_plan], perception_values=perception_values)
+        env = sim2d_utils.make_sim2d_env(render_mode="rgb_array") # TODO(chalo2000): Allow setting environment to initial state
+        # TODO(chalo2000): Make planner take in model which contains plan generation and skill extraction
+        best_action_sequence, best_obj_names = plan(env, args.num_plans, args.beam_size, args.num_samples, text_plans=[text_plan], perception_values=perception_values)
+        print(f"Best action sequence: {best_action_sequence}")
+        print(f"Length of best action sequence: {len(best_action_sequence)}")
+        print(f"Obj names: {best_obj_names}")
+        input()
+        i += 1
     if args.gif_path:
         sim2d_utils.save_replay(env, best_action_sequence, args.gif_path)
 

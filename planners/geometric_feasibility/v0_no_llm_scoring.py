@@ -23,100 +23,117 @@ from . import sim2d_utils
 FILE_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 PERCEPTION_CONSTANTS = {
     "location_bboxs": sim2d_utils.get_location_bboxs(),
+    "location_bcubes": sim2d_utils.get_location_bcubes(),
     "objects": {
         "apple": {
             "width": 0.1,
             "height": 0.1,
+            "depth": 0.1,
             "color": (242, 58, 77),
             "image_path": f"{FILE_DIR_PATH}/assets/apple_crop.png"
         },
         "banana": {
             "width": 0.2,
             "height": 0.2,
+            "depth": 0.2,
             "color": (240, 235, 110),
             "image_path": f"{FILE_DIR_PATH}/assets/banana_crop.png"
         },
         "cherries": {
             "width": 0.1,
             "height": 0.1,
+            "depth": 0.1,
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/cherries_crop.png"
         },
         "chocolate_sauce": {
             "width": 0.125,
             "height": 0.25,
+            "depth": 0.125,
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/chocolate_sauce_crop.png"
         },
         "ketchup": {
             "width": 0.125,
             "height": 0.25,
+            "depth": 0.125,
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/ketchup_crop.png"
         },
         "lettuce": {
             "width": 0.2,
             "height": 0.2,
+            "depth": 0.2,
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/lettuce_crop.png"
         },
         "almond_milk": {
             "width": 0.15,
             "height": 0.3,
+            "depth": 0.15,
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/milk_almond_crop.png"
         },
         "oat_milk": {
             "width": 0.15,
             "height": 0.3,
+            "depth": 0.15,
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/milk_oat_crop.png"
         },
         "whole_milk": {
             "width": 0.15,
             "height": 0.3,
+            "depth": 0.15,
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/milk_whole_crop.png"
         },
         "mustard": {
             "width": 0.125,
             "height": 0.25,
+            "depth": 0.125,
             "color": (255, 255, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/mustard_crop.png"
         },
         "onion": {
             "width": 0.1,
             "height": 0.1,
+            "depth": 0.1,
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/onion_crop.png"
         },
         "orange": {
             "width": 0.1,
             "height": 0.1,
+            "depth": 0.1,
             "color": (255, 165, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/orange_crop.png"
         },
         "pear": {
             "width": 0.1,
             "height": 0.2,
+            "depth": 0.1,
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/pear_crop.png"
         },
         "potato": {
             "width": 0.2,
             "height": 0.1,
+            "depth": 0.2,
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/potato_crop.png"
         },
         "salad_dressing": {
             "width": 0.15,
             "height": 0.3,
+            "depth": 0.15,
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/salad_dressing_crop.png"
         },
         "tomato": {
             "width": 0.1,
             "height": 0.1,
+            "depth": 0.1,
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/tomato_crop.png"
         }
@@ -143,7 +160,7 @@ def generate_random_plan():
         high_level_plan.append(skill)
     return high_level_plan
 
-def parse_language_skill(language_skill):
+def parse_language_skill(language_skill, is_3d=False):
     """Parses a language skill into an action skill.
     
     TODO(chalo2000): Be consistent with naming
@@ -165,16 +182,22 @@ def parse_language_skill(language_skill):
     loc_name = loc_name.strip("'")
     loc_name = loc_name.strip('"')
     object_dict = PERCEPTION_CONSTANTS["objects"][obj_name]
-    object_bbox = (-1, -1, -1, object_dict["width"], object_dict["height"], object_dict["depth"])
-    location_bbox = PERCEPTION_CONSTANTS["location_bboxs"][loc_name]
+    if is_3d:
+        object_bbox = (-1, -1, -1, object_dict["width"], object_dict["height"], object_dict["depth"])
+        location_bbox = PERCEPTION_CONSTANTS["location_bcubes"][loc_name]
+    else:
+        object_bbox = (-1, -1, object_dict["width"], object_dict["height"])
+        location_bbox = PERCEPTION_CONSTANTS["location_bboxs"][loc_name]
     return ("pickandplace", (obj_name, object_bbox, location_bbox))
 
-def generate_plan(text_plan):
+def generate_plan(text_plan, is_3d=False):
     """Generates a plan for placing objects in the fridge.
 
     Parameters:
         text_plan (str)
             The text plan to convert into a skill.
+        is_3d (bool)
+            Whether or not to use 3D bounding boxes.
 
     Returns:
         plan (list)
@@ -184,12 +207,14 @@ def generate_plan(text_plan):
     high_level_plan = []
     for language_skill in text_plan.split("\n"):
         if '#' in language_skill:
-            idx = language_skill.index('#')
-            language_skill = language_skill[:idx] 
-        if (language_skill + "\n").isspace() or ('pickandplace(' not in language_skill):
-            continue
+            continue # Skip comments
+        # if '#' in language_skill:
+        #     idx = language_skill.index('#')
+        #     language_skill = language_skill[:idx] 
+        # if (language_skill + "\n").isspace() or ('pickandplace(' not in language_skill):
+        #     continue
         try:
-            skill = parse_language_skill(language_skill)
+            skill = parse_language_skill(language_skill, is_3d)
             high_level_plan.append(skill)
         except:
             print(f"Failed to parse language skill: {language_skill}")
@@ -244,7 +269,7 @@ def score_sample(env, sample, sample_locs):
     score += env.n_shapes
     return score
 
-def plan(env, num_plans, beam_size, num_samples, text_plans=[], perception_values=None):
+def plan(env, num_plans, beam_size, num_samples, text_plans=[], perception_values=None, is_3d=False):
     """Follows the V0 planning algorithm to output the best sequence of object placements.
 
     The V0 planning algorithm first generates N high-level language plans by few-shot prompting
@@ -271,6 +296,8 @@ def plan(env, num_plans, beam_size, num_samples, text_plans=[], perception_value
             The text plans to convert into skills.
         perception_values (dict)
             The perception values to use for the environment.
+        is_3d (bool)
+            Whether or not to use 3D bounding boxes.
     """
     # TODO(chalo2000): Move these environment specific values to a model
     if perception_values is not None:
@@ -282,7 +309,7 @@ def plan(env, num_plans, beam_size, num_samples, text_plans=[], perception_value
     for i in range(num_plans): # TODO(chalo2000): Parallelize
         print(f"Plan {i+1}/{num_plans}")
         if text_plans:
-            high_level_plan = generate_plan(text_plans[i]) # Generate correct plan
+            high_level_plan = generate_plan(text_plans[i], is_3d) # Generate correct plan
         else:
             high_level_plan = generate_random_plan()
         high_level_plans.append(high_level_plan)
@@ -290,45 +317,56 @@ def plan(env, num_plans, beam_size, num_samples, text_plans=[], perception_value
     # Generate best object placements for each plan
     best_action_sequences = []
     for high_level_plan in high_level_plans:
-        # Maintain best candidates (score, action_sequence) on beam of size B
-        beam = [(0, ())] * beam_size
+        # Maintain best candidates (score, action_sequence, objects) on beam of size B
+        beam = [(0, (), ())] * beam_size
         
         for skill in high_level_plan:
-            print(f"======= {skill=}")
+            # print(f"======= {skill=}")
             skill_name, params = skill
             assert skill_name == "pickandplace"
             object_name, object_bbox, location_bbox = params
-            _, _, _, o_w, o_h, o_d = object_bbox
             o_color = PERCEPTION_CONSTANTS["objects"][object_name].get("color")
             o_img_path = PERCEPTION_CONSTANTS["objects"][object_name].get("image_path")
-            l_x1, l_y1, l_z1, l_w, l_y, l_d = location_bbox
+            if is_3d:
+                _, _, _, o_w, o_h, o_d = object_bbox
+                l_x1, l_y1, l_z1, l_w, l_y, l_d = location_bbox
+            else:
+                _, _, o_w, o_h = object_bbox
+                l_x1, l_z1, l_w, l_h = location_bbox
             candidates = []
             candidates.extend(beam)
-            for score, action_sequence in beam:
+            for score, action_sequence, obj_names in beam:
                 # Simulate the current action sequence
                 beam_env = deepcopy(env)
                 beam_env.reset()
                 for action in action_sequence:
                     beam_env.step(action)
                 # Sample and score C candidate actions from each element on the beam
-                sample_xs = list(np.linspace(l_x1 + o_w/2.0, l_x1 + l_w - o_w/2.0, num_samples)) # Sample x
-                sample_y = l_y1
-                sample_z = -0.04
-                # sample_y = l_y1
-                # sample_z = l_z1  # Shelf z location - 1/8 of the shelf depth (Negative is going into the fridge)
-                for sample_x in sample_xs:
-                    sample_action = (sample_x, sample_y, sample_z, o_w, o_h, o_d) # Convert to action (x, y, w, h)
+                if is_3d:
+                    sqrt_samples = int(num_samples ** 0.5) # Sqrt num samples so x-y combinations total num_samples
+                    sample_xs = list(np.linspace(l_x1 + o_w/2.0, l_x1 + l_w - o_w/2.0, sqrt_samples))
+                    sample_ys = list(np.linspace(l_y1 + o_d/2.0, l_y1 + l_y - o_d/2.0, sqrt_samples))
+                    sample_z = l_z1
+                    sample_actions = [(sample_x, sample_y, sample_z, o_w, o_h, o_d) for sample_x in sample_xs for sample_y in sample_ys]
+                else:
+                    sample_xs = list(np.linspace(l_x1 + o_w/2.0, l_x1 + l_w - o_w/2.0, num_samples))
+                    # 2D simulator has no y-depth
+                    sample_z = l_z1
+                    sample_actions = [(sample_x, sample_z, o_w, o_h) for sample_x in sample_xs]
+                
+                for sample_action in sample_actions:
                     sample_action = sample_action + (o_color,) if o_color else sample_action
                     sample_action = sample_action + (o_img_path,) if o_img_path else sample_action
                     sample_score = score + score_sample(beam_env, sample_action, sample_xs) # Score
                     sample_action_sequence = action_sequence + (sample_action,)
-                    candidates.append((sample_score, sample_action_sequence))
+                    sample_obj_names = obj_names + (object_name,)
+                    candidates.append((sample_score, sample_action_sequence, sample_obj_names))
             # Update the beam with the best B candidates
             heapq.heapify(candidates)
             beam = heapq.nlargest(beam_size, set(candidates))
         best_action_sequences.append(max(beam))
     
     # Choose best object placement from all plans
-    score, best_action_sequence = max(best_action_sequences)
+    score, best_action_sequence, obj_names = max(best_action_sequences)
                 
-    return best_action_sequence
+    return best_action_sequence, obj_names

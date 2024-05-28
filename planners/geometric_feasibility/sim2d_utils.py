@@ -34,11 +34,30 @@ def check_collision(env, action):
     """
     env_copy = deepcopy(env)
     _, _, _, _, info = env_copy.step(action)
-    if info.get("collision") is not None:
-        print(f"[+] Detected collision: {action}")
-    else:
-        print(f"[-] No collision: {action}")
+    # if info.get("collision") is not None:
+    #     print(f"[+] Detected collision: {action}")
+    # else:
+    #     print(f"[-] No collision: {action}")
     return info.get("collision") is not None
+
+def get_location_bcubes():
+    """Returns the bounding cubes (3D) of the locations in the environment.
+    
+    Returns:
+        location_bcubes (dict)
+            A dictionary mapping the location name to its bounding cube.
+    """
+    return {
+        "top shelf":                (0.0, 0.66, 0.0, 1.0, 0.34, 1.0),
+        "left of top shelf":        (0.0, 0.66, 0.0, 0.5, 0.34, 1.0),
+        "right of top shelf":       (0.5, 0.66, 0.0, 0.5, 0.34, 1.0),
+        "middle shelf":             (0.0, 0.33, 0.0, 1.0, 0.33, 1.0),
+        "left of middle shelf":     (0.0, 0.33, 0.0, 0.5, 0.33, 1.0),
+        "right of middle shelf":    (0.5, 0.33, 0.0, 0.5, 0.33, 1.0),
+        "bottom shelf":             (0.0, 0.0 , 0.0, 1.0, 0.33, 1.0),
+        "left of bottom shelf":     (0.0, 0.0 , 0.0, 0.5, 0.33, 1.0),
+        "right of bottom shelf":    (0.5, 0.0 , 0.0, 0.5, 0.33, 1.0)
+    }
 
 def get_location_bboxs():
     """Returns the bounding boxes of the locations in the environment.
@@ -48,15 +67,15 @@ def get_location_bboxs():
             A dictionary mapping the location name to its bounding box.
     """
     return {
-        "top shelf": (0.0, 0.67, 1.0, 0.33),
-        "left of top shelf": (0.0, 0.67, 0.5, 0.33),
-        "right of top shelf": (0.5, 0.67, 0.5, 0.33),
-        "middle shelf": (0.0, 0.33, 1.0, 0.33),
-        "left of middle shelf": (0.0, 0.33, 0.5, 0.33),
-        "right of middle shelf": (0.5, 0.33, 0.5, 0.33),
-        "bottom shelf": (0.0, 0.0, 1.0, 0.33),
-        "left of bottom shelf": (0.0, 0.0, 0.5, 0.33),
-        "right of bottom shelf": (0.5, 0.0, 0.5, 0.33)
+        "top shelf":                (0.0, 0.66, 1.0, 0.34),
+        "left of top shelf":        (0.0, 0.66, 0.5, 0.34),
+        "right of top shelf":       (0.5, 0.66, 0.5, 0.34),
+        "middle shelf":             (0.0, 0.33, 1.0, 0.33),
+        "left of middle shelf":     (0.0, 0.33, 0.5, 0.33),
+        "right of middle shelf":    (0.5, 0.33, 0.5, 0.33),
+        "bottom shelf":             (0.0, 0.0 , 1.0, 0.33),
+        "left of bottom shelf":     (0.0, 0.0 , 0.5, 0.33),
+        "right of bottom shelf":    (0.5, 0.0 , 0.5, 0.33)
     }
 
 def get_action(env, mode):
