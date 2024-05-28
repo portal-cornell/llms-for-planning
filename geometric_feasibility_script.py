@@ -193,7 +193,6 @@ if __name__ == "__main__":
         print(f"Best action sequence: {best_action_sequence}")
         print(f"Length of best action sequence: {len(best_action_sequence)}")
         print(f"Obj names: {best_obj_names}")
-        input()
         i += 1
     if args.gif_path:
         sim2d_utils.save_replay(env, best_action_sequence, args.gif_path)
