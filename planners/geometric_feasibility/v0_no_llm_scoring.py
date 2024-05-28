@@ -345,10 +345,10 @@ def plan(env, num_plans, beam_size, num_samples, text_plans=[], perception_value
                 # Sample and score C candidate actions from each element on the beam
                 if is_3d:
                     sqrt_samples = int(num_samples ** 0.5) # Sqrt num samples so x-y combinations total num_samples
-                    sample_xs = list(np.linspace(l_x1 + o_w/2.0, l_x1 + l_w - o_w/2.0, sqrt_samples))
-                    sample_ys = list(np.linspace(l_y1 + o_d/2.0, l_y1 + l_y - o_d/2.0, sqrt_samples))
+                    sample_xs = list(np.linspace(l_x1, l_x1 + l_w - o_w, sqrt_samples))
+                    sample_y = l_y1
                     sample_z = l_z1
-                    sample_actions = [(sample_x, sample_y, sample_z, o_w, o_h, o_d) for sample_x in sample_xs for sample_y in sample_ys]
+                    sample_actions = [(sample_x, sample_y, sample_z, o_w, o_h, o_d) for sample_x in sample_xs]
                 else:
                     sample_xs = list(np.linspace(l_x1 + o_w/2.0, l_x1 + l_w - o_w/2.0, num_samples))
                     # 2D simulator has no y-depth
