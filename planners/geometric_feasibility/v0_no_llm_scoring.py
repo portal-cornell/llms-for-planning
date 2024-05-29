@@ -21,6 +21,8 @@ import sim2d_utils # TODO(chalo2000): Move to model so run_planner.py can be run
 # from . import sim2d_utils
 
 FILE_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
+# object width: [0.1, 0.125, 0.15, 0.5, 0.75]
+# object height: [0.1, 0.2]
 PERCEPTION_CONSTANTS = {
     "location_bboxs": sim2d_utils.get_location_bboxs(),
     "location_bcubes": sim2d_utils.get_location_bcubes(),
@@ -46,7 +48,7 @@ PERCEPTION_CONSTANTS = {
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/cherries_crop.png"
         },
-        "chocolate_sauce": {
+        "chocolate sauce": {
             "width": 0.125,
             "height": 0.25,
             "depth": 0.125,
@@ -67,21 +69,21 @@ PERCEPTION_CONSTANTS = {
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/lettuce_crop.png"
         },
-        "almond_milk": {
+        "almond milk": {
             "width": 0.15,
             "height": 0.3,
             "depth": 0.15,
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/milk_almond_crop.png"
         },
-        "oat_milk": {
+        "oat milk": {
             "width": 0.15,
             "height": 0.3,
             "depth": 0.15,
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/milk_oat_crop.png"
         },
-        "whole_milk": {
+        "whole milk": {
             "width": 0.15,
             "height": 0.3,
             "depth": 0.15,
@@ -123,7 +125,7 @@ PERCEPTION_CONSTANTS = {
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/potato_crop.png"
         },
-        "salad_dressing": {
+        "salad dressing": {
             "width": 0.15,
             "height": 0.3,
             "depth": 0.15,
@@ -136,7 +138,307 @@ PERCEPTION_CONSTANTS = {
             "depth": 0.1,
             "color": (0, 0, 0),
             "image_path": f"{FILE_DIR_PATH}/assets/tomato_crop.png"
-        }
+        },
+        "watermelon": {
+            "width": 0.2,
+            "height": 0.25,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/watermelon_crop.png"
+        },
+        "papaya": {
+            "width": 0.15,
+            "height": 0.25,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/papaya_crop.png"
+        },
+        "avocado": {
+            "width": 0.1,
+            "height": 0.15,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/avocado_crop.png"
+        },
+        "mango": {
+            "width": 0.125,
+            "height": 0.125,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/mango_crop.png"
+        },
+        "pomegranate": {
+            "width": 0.1,
+            "height": 0.1,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/pomegranate_crop.png"
+        },
+        "honeydew": {
+            "width": 0.2,
+            "height": 0.2,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/honeydew_crop.png"
+        },
+        "cheese block": {
+            "width": 0.15,
+            "height": 0.1,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/cheese_block_crop.png"
+        },
+        "yogurt": {
+            "width": 0.125,
+            "height": 0.1,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/yogurt_crop.png"
+        },
+        "butter": {
+            "width": 0.2,
+            "height": 0.1,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/butter_crop.png"
+        },
+        "egg": {
+            "width": 0.1,
+            "height": 0.1,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/egg_crop.png"
+        },
+        "sliced cheese": {
+            "width": 0.1,
+            "height": 0.1,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/sliced_cheese_crop.png"
+        },
+        "ice cream": {
+            "width": 0.1,
+            "height": 0.125,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/ice_cream_crop.png"
+        },
+        "string cheese": {
+            "width": 0.1,
+            "height": 0.15,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/string_cheese_crop.png"
+        },
+        "fanta can": {
+            "width": 0.1,
+            "height": 0.125,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/fanta_crop.png"
+        },
+        "pepsi can": {
+            "width": 0.1,
+            "height": 0.125,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/pepsi_crop.png"
+        },
+        "coke bottle": {
+            "width": 0.1,
+            "height": 0.125,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/coca_cola_crop.png"
+        },
+        "ginger ale": {
+            "width": 0.1,
+            "height": 0.2,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/ginger_ale_crop.png"
+        },
+        "gatorade": {
+            "width": 0.1,
+            "height": 0.2,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/gatorade_crop.png"
+        },
+        "strawberry milk": {
+            "width": 0.1,
+            "height": 0.1,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/strawberry_milk_crop.png"
+        },
+        "banana milk": {
+            "width": 0.1,
+            "height": 0.1,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/banana_milk_crop.png"
+        },
+        "orange juice": {
+            "width": 0.15,
+            "height": 0.3,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/orange_juice_crop.png"
+        },
+        "apple juice": {
+            "width": 0.1,
+            "height": 0.2,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/apple_juice_crop.png"
+        },
+        "cranberry juice": {
+            "width": 0.15,
+            "height": 0.3,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/cranberry_juice_crop.png"
+        },
+        "soy sauce": {
+            "width": 0.15,
+            "height": 0.15,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/soy_sauce_crop.png"
+        },
+        "hot sauce": {
+            "width": 0.1,
+            "height": 0.25,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/hot_sauce_crop.png"
+        },
+        "nutella": {
+            "width": 0.15,
+            "height": 0.15,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/nutella_crop.png"
+        },
+        "maple syrup": {
+            "width": 0.15,
+            "height": 0.15,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/maple_syrup_crop.png"
+        },
+        "whipped cream": {
+            "width": 0.125,
+            "height": 0.25,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/whipped_cream_crop.png"
+        },
+        "peanut butter": {
+            "width": 0.15,
+            "height": 0.15,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/peanut_butter_crop.png"
+        },
+        "eggplant": {
+            "width": 0.125,
+            "height": 0.25,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/eggplant_crop.png"
+        },
+        "pumpkin": {
+            "width": 0.15,
+            "height": 0.15,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/pumpkin_crop.png"
+        },
+        "bell pepper": {
+            "width": 0.15,
+            "height": 0.15,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/bell_pepper_crop.png"
+        },
+        "carrot": {
+            "width": 0.1,
+            "height": 0.15,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/carrot_crop.png"
+        },
+        "radish": {
+            "width": 0.1,
+            "height": 0.125,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/radish_crop.png"
+        },
+        "corn": {
+            "width": 0.15,
+            "height": 0.15,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/corn_crop.png"
+        },
+        "cucumber": {
+            "width": 0.125,
+            "height": 0.125,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/cucumber.png"
+        },
+        "sparkling water": {
+            "width": 0.15,
+            "height": 0.25,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/sparkling_water.png"
+        },
+        "cauliflower": {
+            "width": 0.2,
+            "height": 0.2,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/cauliflower.png"
+        },
+        "broccoli": {
+            "width": 0.15,
+            "height": 0.15,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/broccoli.png"
+        },
+        "grape": {
+            "width": 0.2,
+            "height": 0.15,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/grape.png"
+        },
+        "relish": {
+            "width": 0.125,
+            "height": 0.15,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/grape.png"
+        },
+        "pineapple": {
+            "width": 0.15,
+            "height": 0.25,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/pineapple.png"
+        },
+        "cabagge": {
+            "width": 0.15,
+            "height": 0.15,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/cabbage.png"
+        },
+        "sprite can": {
+            "width": 0.1,
+            "height": 0.125,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/sprite.png"
+        },
+        "peach": {
+            "width": 0.1,
+            "height": 0.1,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/peach.png"
+        },
+        "squash": {
+            "width": 0.125,
+            "height": 0.25,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/squash.png"
+        },
+        "strawberry": {
+            "width": 0.1,
+            "height": 0.1,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/strawberry.png"
+        },
+        "grape juice": {
+            "width": 0.15,
+            "height": 0.3,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/grape_juice_crop.png"
+        },
+        "celery": {
+            "width": 0.125,
+            "height": 0.25,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/celery.png"
+        },
+        "tartar sauce": {
+            "width": 0.15,
+            "height": 0.25,
+            "color": (0, 0, 0),
+            "image_path": f"{FILE_DIR_PATH}/assets/tartar_sauce.png"
+        },
     }
 }
 
