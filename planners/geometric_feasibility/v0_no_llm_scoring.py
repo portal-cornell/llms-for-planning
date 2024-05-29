@@ -17,8 +17,8 @@ import heapq
 import numpy as np
 import random
 
-# import sim2d_utils # TODO(chalo2000): Move to model so run_planner.py can be run
-from . import sim2d_utils
+import sim2d_utils # TODO(chalo2000): Move to model so run_planner.py can be run
+# from . import sim2d_utils
 
 FILE_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 PERCEPTION_CONSTANTS = {
@@ -209,11 +209,6 @@ def generate_plan(text_plan, is_3d=False):
     for language_skill in text_plan.split("\n"):
         if '#' in language_skill:
             continue # Skip comments
-        # if '#' in language_skill:
-        #     idx = language_skill.index('#')
-        #     language_skill = language_skill[:idx] 
-        # if (language_skill + "\n").isspace() or ('pickandplace(' not in language_skill):
-        #     continue
         try:
             skill = parse_language_skill(language_skill, is_3d)
             high_level_plan.append(skill)
