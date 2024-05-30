@@ -1,0 +1,139 @@
+version: 1.0.0
+experiment_name: grocery_bot_plan
+prompt_description: all-pref-concise-prompt
+prompt_version: 1.1.1
+system: |
+  You are an assistant that comes up with a plan for putting items into a fridge given a list of items and a human's preference.
+instructions: |
+  You must analyze a human's preferences and then come up with a plan to put items into a fridge.
+  
+  You will receive the following as input:
+  Optional[Feedback]: ...
+  Objects: ...
+  Locations: ...
+  Initial State: ...
+  Preference: ...
+
+  where
+    - "Feedback" appears if the previous plan was geometrically infeasible.
+      - It will contain the items that did not fit in the previous plan.
+      - It is possible that the item could fit but the pickandplace function call was incorrect (e.g. misspelled item or location)
+    - "Objects" is a list of items that need to be placed in the fridge.
+    - "Locations" is a list of locations in the fridge.
+    - "Initial State" is a dictionary whose keys are the locations in the fridge and the values are a list of items currently in that location.
+    - "Preference" is a description of the human's preferences for where they like things in a fridge.
+      - The preference should always be satisfied, even when attempting to place items that did not fit in the previous plan.
+  
+  You must respond in the following format:
+  # Reflect: ...
+  # Reasoning: ...
+  pickandplace(item1, location1)
+  pickandplace(item2, location2)
+  ...
+
+  where
+    - "Reflect" should contain reasoning about the previous plan if it was geometrically infeasible.
+      - Reflect on what went wrong and how you plan to fix it.
+      - The plan must abide by the human's preference.
+    - "Reasoning" should contain the reasoning for your plan.
+      - Reason about how best to place the items in the fridge based on the human's preference.
+      - If the reflection involves repositioning items, ensure that the human's preference is still satisfied.
+    - "pickandplace(item, location)" is a function call that places the item in the location in the fridge.
+      - This is your plan of action.
+  
+  Each time you are prompted to generate a new plan, the fridge is reset to its initial state. Use this
+  to your advantage to come up with a better plan. It is absolutely necessary to satisfy the human's
+  preference; geometric infeasibility only suggests that objects should be placed in different locations
+  that still satisfy the preference.
+examples:
+- description: General Location. 
+- observation: |
+    Objects: ["milk", "cheese", "apple", "orange"]
+    Locations: ["top shelf", "left side of top shelf", "right side of top shelf", "middle shelf", "left side of middle shelf", "right side of middle shelf", "bottom shelf", "left side of bottom shelf", "right side of bottom shelf"]
+    Initial State: {}
+    Preference: "I like putting dairy on the top shelf and fruits on the right side of middle shelf."
+- response: |
+    # Reasoning: Milk and cheese are dairy product, which based on the preference needs to be on the top shelf. Apples and oranges are fruits, which needs to be on the right side of middle shelf.
+    pickandplace("milk", "top shelf")
+    pickandplace("cheese", "top shelf")
+    pickandplace("apple", "right side of middle shelf")
+    pickandplace("orange","right side of middle shelf")
+- description: Relative Position. 
+- observation: |
+    Objects: ["milk", "cheese", "apple", "orange"]
+    Locations: ["top shelf", "left side of top shelf", "right side of top shelf", "middle shelf", "left side of middle shelf", "right side of middle shelf", "bottom shelf", "left side of bottom shelf", "right side of bottom shelf"]
+    Initial State: {"left side of middle shelf": ["peach", "cherries"]}
+    Preference: "Fruits must be placed next to other exisiting fruits regardless of which shelf they are on. Dairy products on the be the right side of bottom shelf. "
+- response: |
+    # Reasoning: Apples and oranges are fruits, which needs to be placed next to other exisiting fruits. Existing fruits in the fridge are "peach" and "cherries", which are at the left side of middle shelf, so apple and oranges should be placed there as well. Milk and cheese are diary product, which needs to be placed on the right side of bottom shelf. 
+    pickandplace("apple", "left side of middle shelf")
+    pickandplace("orange","left side of middle shelf")
+    pickandplace("milk", "right side of bottom shelf")
+    pickandplace("cheese", "right side of bottom shelf")
+- description: Relative Position. (2 Categories)
+- observation: |
+    Objects: ["milk", "cheese", "apple", "orange"]
+    Locations: ["top shelf", "left side of top shelf", "right side of top shelf", "middle shelf", "left side of middle shelf", "right side of middle shelf", "bottom shelf", "left side of bottom shelf", "right side of bottom shelf"]
+    Initial State: {"right side of top shelf": ["cabbage", "corn"]}
+    Preference: "Fruits must be placed next to other exisiting vegetables regardless of which shelf they are on. Dairy products on the be the right side of bottom shelf. "
+- response: |
+    # Reasoning: Apples and oranges are fruits, which needs to be placed next to other exisiting vegetables. Existing vegetables in the fridge are "cabbage" and "corn", which are at the right side of top shelf, so apple and oranges should be placed there as well. Milk and cheese are diary product, which needs to be placed on the right side of bottom shelf. 
+    pickandplace("apple", "right side of top shelf")
+    pickandplace("orange","right side of top shelf")
+    pickandplace("milk", "right side of bottom shelf")
+    pickandplace("cheese", "right side of bottom shelf")
+- description: Subcategory
+- observation: |
+    Objects: ["milk", "cheese", "apple", "orange"]
+    Locations: ["top shelf", "left side of top shelf", "right side of top shelf", "middle shelf", "left side of middle shelf", "right side of middle shelf", "bottom shelf", "left side of bottom shelf", "right side of bottom shelf"]
+    Initial State: {"left side of middle shelf": ["peach", "cherries"]}
+    Preference: "Most dairy product should be placed on the left side of top shelf, but cheese product should be placed on the right side of middle shelf. Fruits should be placed on the left side of middle shelf."
+- response: |
+    # Reasoning: Cheese is a cheese product, so it needs to be placed at right side of middle shelf. Milk is a dairy product, so it should be placed on the left side of top shelf. Apples and oranges are fruits, which needs to be on the left side of middle shelf.
+    pickandplace("cheese", "right side of middle shelf")
+    pickandplace("milk", "left side of top shelf")
+    pickandplace("apple", "left side of middle shelf")
+    pickandplace("orange","left side of middle shelf")
+- description: Conditional
+- observation: |
+    Objects: ["milk", "cheese", "apple", "orange"]
+    Locations: ["top shelf", "left side of top shelf", "right side of top shelf", "middle shelf", "left side of middle shelf", "right side of middle shelf", "bottom shelf", "left side of bottom shelf", "right side of bottom shelf"]
+    Initial State: {"right side of bottom shelf": ["yogurt", "butter"]}
+    Preference: "If the right side of bottom shelf has less than 3 items, dairy products can be placed there. Else, you must place them at the left side of top shelf. Fruits should be placed on the left side of middle shelf."
+- response: |
+    # Reasoning: Right side of bottom shelf can fit one more dairy product, so I will put milk there. Since now there are 3 items at the right side of bottom shelf, I must put cheese on the left side of top shelf. Apples and oranges are fruits, which needs to be on the left side of middle shelf.
+    pickandplace("milk", "right side of bottom shelf")
+    pickandplace("cheese", "left side of top shelf")
+    pickandplace("apple", "left side of middle shelf")
+    pickandplace("orange","left side of middle shelf")
+- description: Fridge shelves with objects of varying size
+- observation: |
+    Objects: ["milk", "cheese", "apple", "melon"]
+    Locations: ["top shelf", "middle shelf", "bottom shelf"]
+    Initial State: {
+      "top shelf": ["yogurt", "butter"],
+      "middle shelf": ["watermelon", "pizza box"]
+    }
+    Preference: "I don't want any of the fridge shelves to be too crowded."
+- response: |
+    pickandplace("milk", "top shelf")
+    pickandplace("cheese", "top shelf")
+    pickandplace("apple", "middle shelf")
+    pickandplace("melon", "middle shelf")
+- description: Correction of previous plan
+- observation: |
+    Feedback: The previous plan was geometrically infeasible. The items that did not fit were ["melon", "apple"].
+    Objects: ["milk", "cheese", "apple", "melon"]
+    Locations: ["top shelf", "middle shelf", "bottom shelf"]
+    Initial State: {
+      "top shelf": ["yogurt", "butter"],
+      "middle shelf": ["watermelon", "pizza box"]
+    }
+    Preference: "I don't want any of the fridge shelves to be too crowded."
+- response: |
+    # Reflect: The melon and apple did not fit in the previous plan. This must mean that the middle shelf is too crowded.
+    # Reasoning: Instead of placing the apple and melon on the middle shelf, they can be placed on the bottom shelf which is empty.
+    pickandplace("milk", "top shelf")
+    pickandplace("cheese", "top shelf")
+    pickandplace("apple", "bottom shelf")
+    pickandplace("melon", "bottom shelf")
