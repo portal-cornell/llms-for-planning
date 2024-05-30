@@ -65,8 +65,10 @@ def generate_demonstrations(env, gt_preference_dict, num_demonstrations=2, demo_
     
     Returns:
         demonstrations (list): A list of demonstrations.
+        best_action_sequences (list): A list of the best action sequences for each demonstration (for viz)
     """
     demonstrations = []
+    best_action_sequences = []
     ordered_categories = list(CATEGORY_DICT.keys())
     ablated_locations = []
     i = 0
@@ -132,8 +134,9 @@ def generate_demonstrations(env, gt_preference_dict, num_demonstrations=2, demo_
             "final_state": final_state
         }
         demonstrations.append(demonstration)
+        best_action_sequences.append(best_action_sequence)
         i += 1
-    return demonstrations
+    return demonstrations, best_action_sequences
 
 def generate_scenarios(env, gt_preference_dict, num_scenarios=2, scenario_objects=10, obj_to_place=6):
     """Returns a list of scenarios for the specific location preference.
@@ -147,11 +150,12 @@ def generate_scenarios(env, gt_preference_dict, num_scenarios=2, scenario_object
     
     Returns:
         scenarios (list): A list of scenarios.
+        best_action_sequences (list): A list of the best action sequences for each demonstration (for viz)
     """
-    scenarios = generate_demonstrations(env, gt_preference_dict, num_demonstrations=num_scenarios, demo_objects=scenario_objects, obj_to_place=obj_to_place)
+    scenarios, best_action_sequences = generate_demonstrations(env, gt_preference_dict, num_demonstrations=num_scenarios, demo_objects=scenario_objects, obj_to_place=obj_to_place)
     for scenario in scenarios:
         scenario.pop("final_state")
-    return scenarios
+    return scenarios, best_action_sequences
 
 def specific_location_generator(num_tests, seed):
     """Returns a dictionary of test cases for the specific location preference.
@@ -198,15 +202,17 @@ def specific_location_generator(num_tests, seed):
     
     Returns:
         tests (dict): The test cases in the format specified above.
+        viz_data (dict): The visualization data for the demonstrations and scenarios.
     """
     random.seed(seed)
     env = sim2d_utils.make_sim2d_env(render_mode="rgb_array") # TODO(chalo2000): Allow setting environment to initial state
     gt_preference_dict, gt_preference_str = generate_ground_truth_preference()
     tests = {}
+    viz_data = {}
     for i in range(num_tests):
-        demonstrations = generate_demonstrations(env, gt_preference_dict, num_demonstrations=2, demo_objects=7, obj_to_place=4)
+        demonstrations, demo_sequences = generate_demonstrations(env, gt_preference_dict, num_demonstrations=2, demo_objects=7, obj_to_place=4)
         # input(f"Generated demonstrations for Test {i}. Press Enter to continue.")
-        scenarios = generate_scenarios(env, gt_preference_dict, num_scenarios=2, scenario_objects=10, obj_to_place=6)
+        scenarios, scenario_sequences = generate_scenarios(env, gt_preference_dict, num_scenarios=2, scenario_objects=10, obj_to_place=6)
         # input(f"Generated scenarios for Test {i}. Press Enter to continue.")
         test = {
             "type": "specific_location",
@@ -215,11 +221,24 @@ def specific_location_generator(num_tests, seed):
             "scenarios": scenarios
         }
         tests[str(i)] = test
-    return tests
+        viz_data[str(i)] = {
+            "demonstrations": demo_sequences,
+            "scenarios": scenario_sequences
+        }
+    return tests, viz_data
 
 if __name__ == "__main__":
-    tests = specific_location_generator(2, 0)
+    tests, viz_data = specific_location_generator(1, 0)
 
     # Write tests to file
-    with open("jsons/specific_location_tests.json", "w") as file:
+    with open("generated_tests/specific_location/tests.json", "w") as file:
         json.dump(tests, file, indent=4)
+    
+    env = sim2d_utils.make_sim2d_env(render_mode="rgb_array")
+    for i, viz in viz_data.items():
+        demonstrations = viz["demonstrations"]
+        scenarios = viz["scenarios"]
+        for j, best_action_sequence in enumerate(demonstrations):
+            sim2d_utils.save_replay(env, best_action_sequence, f"generated_tests/specific_location/demonstrations/test_{i}_demonstration_{j}.gif", action_to_start=3)
+        for j, best_action_sequence in enumerate(scenarios):
+            sim2d_utils.save_replay(env, best_action_sequence, f"generated_tests/specific_location/scenarios/test_{i}_scenario_{j}.gif", action_to_start=4)
