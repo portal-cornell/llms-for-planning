@@ -133,7 +133,7 @@ def generate_demonstrations(env, gt_preference_dict, num_demonstrations=2, demo_
         }
         demonstrations.append(demonstration)
         i += 1
-    return demonstrations, best_action_sequences
+    return demonstrations
 
 def generate_scenarios(env, gt_preference_dict, num_scenarios=2, scenario_objects=10, obj_to_place=6):
     """Returns a list of scenarios for the specific location preference.
