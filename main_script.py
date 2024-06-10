@@ -201,7 +201,7 @@ def log_planner_results(log_file, optimal_plan, statistics):
             f.write(f"Optimal plan: {json.dumps(str_optimal_plan)}\n")
             f.write("\n")
 
-def planning_loop(i, cfg, model, instance_dir, kwargs):
+def planning_loop(i, cfg, model, instance_dir, domain, kwargs):
     instance_obj = model.env.problems[i]
     setup_instance_logging_directory(instance_obj, instance_dir, cfg, kwargs)
     model.env.fix_problem_index(i)
@@ -213,7 +213,7 @@ def planning_loop(i, cfg, model, instance_dir, kwargs):
         return None, None
     plan_policy = NAME_TO_POLICY[cfg.planner.plan_policy](kwargs)
     goal = initial_state.goal
-    reached_goal, action_sequence, graph = plan(plan_policy, model, initial_state, goal, cfg.planner.max_steps)
+    reached_goal, action_sequence, graph = plan(plan_policy, model, initial_state, goal, cfg.planner.max_steps, domain)
     
     # Get optimal plan
     optimal_plan, statistics = pddlgym_utils.get_optimal_plan(model.env.domain, initial_state)
@@ -287,7 +287,7 @@ def run_planner(cfg: DictConfig) -> None:
                     visualize_graph(graph, graph_file)
     else:
         for i in tqdm(instance_idx):
-            graph, graph_file = planning_loop(i, cfg, model, instance_dir, kwargs)
+            graph, graph_file = planning_loop(i, cfg, model, instance_dir, cfg.domain, kwargs)
             if graph_file:
                 visualize_graph(graph, graph_file)
 
