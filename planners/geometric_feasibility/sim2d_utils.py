@@ -157,7 +157,7 @@ def play_env(max_steps=100, mode="random", render_mode="human", fps=4, gif_path=
     if gif_path is not None:
         imageio.mimsave(gif_path, imgs, fps=fps)
 
-def save_replay(env, actions, gif_path, fps=4):
+def save_replay(env, actions, gif_path, fps=4, action_to_start=0):
     """Saves a replay of the environment with the given actions to the given GIF path.
     
     Parameters:
@@ -169,17 +169,22 @@ def save_replay(env, actions, gif_path, fps=4):
             The path to save the GIF to.
         fps (int)
             The frames per second to render the GIF at.
+        action_to_start (int)
+            The action to start the replay at.
     """
     # Initialize environment
     env = deepcopy(env)
     env.reset()
     # Render
     img = env.render()
-    imgs = [img]
+    imgs = []
+    if action_to_start == 0:
+        imgs.append(img)
     # Simulate steps
-    for action in actions:
+    for i, action in enumerate(actions):
         obs, reward, terminated, truncated, info = env.step(action)
         # Render
         img = env.render()
-        imgs.append(img)
+        if (i + 1) >= action_to_start:
+            imgs.append(img)
     imageio.mimsave(gif_path, imgs, fps=fps)

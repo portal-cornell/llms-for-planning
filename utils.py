@@ -2,9 +2,9 @@
 This module contains utility functions for running the planner scripts.
 """
 
-from llms_for_planning.prompt_builder.constants import PROMPT_HISTORY_PATH
-import llms_for_planning.prompt_builder.serializer as prompt_serializer
-import llms_for_planning.prompt_builder.utils as prompt_utils
+from prompt_builder.constants import PROMPT_HISTORY_PATH
+import prompt_builder.serializer as prompt_serializer
+import prompt_builder.utils as prompt_utils
 
 def fetch_messages(experiment_name, prompt_description, prompt_version):
     """Fetches the messages for the prompt from the version control directory.

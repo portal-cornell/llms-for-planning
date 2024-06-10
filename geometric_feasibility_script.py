@@ -156,10 +156,26 @@ if __name__ == "__main__":
     """
 
     # TODO(chalo2000): Move to Hydra config
-    objs_to_put_away = ["apple", "banana", "cherries", "chocolate_sauce", "ketchup", "oat_milk", "whole_milk", "mustard", "potato", "salad_dressing", "tomato"]
-    locations = ["top shelf", "left of top shelf", "right of top shelf", "middle shelf", "left of middle shelf", "right of middle shelf", "bottom shelf", "left of bottom shelf", "right of bottom shelf"]
-    initial_state_of_fridge = {}
-    preference = "Fruit on the left and vegetables on the right. I like my milk on the upper right and my condiments on the middle shelf."
+    # objs_to_put_away = ["apple", "banana", "cherries", "chocolate sauce", "ketchup", "oat milk", "whole milk", "mustard", "potato", "salad dressing", "onion"]
+    # locations = ["top shelf", "left side of top shelf", "right side of top shelf", "middle shelf", "left side of middle shelf", "right side of middle shelf", "bottom shelf", "left side of bottom shelf", "right side of bottom shelf"]
+    # initial_state_of_fridge = {}
+    # preference = "Fruit on the left and vegetables on the right. I like my milk on the upper right and my condiments on the middle shelf."
+    """
+    Objects: ['mustard bottle', 'fanta can', 'apple juice bottle', 'pineapple', 'sprite can']
+            Locations: ['top shelf', 'left side of top shelf', 'right side of top shelf', 'middle shelf', 'left side of middle shelf', 'right side of middle shelf', 'bottom shelf', 'left side of bottom shelf', 'right side of bottom shelf']
+            Initial State: "{\"right side of middle shelf\": [\"soda orange fanta\"], \"left side of top shelf\": [\"tomato ketchup heinz\"], \"left side of middle shelf\": [\"cabbage\"], \"right side of bottom shelf\": [\"soda pepsi\"], \"right side of top shelf\": [\"coke bottle\", \"sprite soda green\"]}"
+            Preference: "I want vegetables to be placed next to existing vegetables on the same shelf regardless of what shelf or what side it is. Fruits should be on the left side of the bottom shelf. I want drinks to be on the right side of the fridge. I want condiments to be placed next to existing condiments on the same shelf regardless of what shelf or what side it is."
+    """
+    objs_to_put_away = ["mustard", "fanta can", "apple juice", "pineapple", "sprite can"]
+    locations = ["top shelf", "left side of top shelf", "right side of top shelf", "middle shelf", "left side of middle shelf", "right side of middle shelf", "bottom shelf", "left side of bottom shelf", "right side of bottom shelf"]
+    initial_state_of_fridge = {
+        "right side of middle shelf": ["fanta can"],
+        "left side of top shelf": ["ketchup"],
+        "left side of middle shelf": ["cabbage"],
+        "right side of bottom shelf": ["pepsi can"],
+        "right side of top shelf": ["coke bottle", "sprite can"]
+    }
+    preference = "I want vegetables to be placed next to existing vegetables on the same shelf regardless of what shelf or what side it is. Fruits should be on the left side of the bottom shelf. I want drinks to be on the right side of the fridge. I want condiments to be placed next to existing condiments on the same shelf regardless of what shelf or what side it is."
     perception_values = None
     messages = fetch_messages(args.experiment_name, args.prompt_description, args.prompt_version)
     llm_params = {
@@ -190,9 +206,9 @@ if __name__ == "__main__":
         env = sim2d_utils.make_sim2d_env(render_mode="rgb_array") # TODO(chalo2000): Allow setting environment to initial state
         # TODO(chalo2000): Make planner take in model which contains plan generation and skill extraction
         best_action_sequence, best_obj_names = plan(env, args.num_plans, args.beam_size, args.num_samples, text_plans=[text_plan], perception_values=perception_values)
-        print(f"Best action sequence: {best_action_sequence}")
-        print(f"Length of best action sequence: {len(best_action_sequence)}")
-        print(f"Obj names: {best_obj_names}")
+        # print(f"Best action sequence: {best_action_sequence}")
+        # print(f"Length of best action sequence: {len(best_action_sequence)}")
+        # print(f"Obj names: {best_obj_names}")
         i += 1
     if args.gif_path:
         sim2d_utils.save_replay(env, best_action_sequence, args.gif_path)

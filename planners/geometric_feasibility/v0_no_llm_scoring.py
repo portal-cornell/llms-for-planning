@@ -475,7 +475,7 @@ def parse_language_skill(language_skill, is_3d=False):
         skill (tuple)
             The skill to execute in the environment.
     """
-    print(language_skill)
+    # print(language_skill)
     skill_name, params = language_skill.split("(", 1)
     assert skill_name == "pickandplace"
     obj_name, loc_name = params.split(", ")
@@ -509,13 +509,12 @@ def generate_plan(text_plan, is_3d=False):
     # Split the text plan into high-level language skills
     high_level_plan = []
     for language_skill in text_plan.split("\n"):
-        if '#' in language_skill:
-            continue # Skip comments
         try:
             skill = parse_language_skill(language_skill, is_3d)
             high_level_plan.append(skill)
         except:
-            print(f"Failed to parse language skill: {language_skill}")
+            # print(f"Failed to parse language skill: {language_skill}")
+            pass
     return high_level_plan
 
 def average_packing_space_left(env, sample, sample_locs):
@@ -605,7 +604,7 @@ def plan(env, num_plans, beam_size, num_samples, text_plans=[], perception_value
     # Generate N plans
     high_level_plans = []
     for i in range(num_plans): # TODO(chalo2000): Parallelize
-        print(f"Plan {i+1}/{num_plans}")
+        # print(f"Plan {i+1}/{num_plans}")
         if text_plans:
             high_level_plan = generate_plan(text_plans[i], is_3d) # Generate correct plan
         else:
