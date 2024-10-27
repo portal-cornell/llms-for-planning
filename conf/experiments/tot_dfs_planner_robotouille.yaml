@@ -1,0 +1,29 @@
+# @package _global_
+defaults:
+  - override /llm: base_llm
+  - override /planner: base_planner
+
+llm:
+  prompts:
+    action_proposal_prompt:
+      experiment_name: tot_propose
+      prompt_description: robotouille
+      prompt_version: 1.0.1
+    
+    state_selection_prompt:
+      experiment_name: tot_value
+      prompt_description: robotouille
+      prompt_version: 1.0.1
+
+planner:
+  backend: robotouille
+  plan_policy: tot_dfs_robotouille
+  max_steps: 20
+  seeds: [16,22,31,35,49,50,51,73,89,97]
+  samples: 10
+  num_actions: 2
+  max_feedback_steps: 5
+  value_threshold: 1
+  graph_file: ${hydra:runtime.output_dir}/graph_tot_dfs.png
+  log_file: ${hydra:runtime.output_dir}/log_tot_dfs.txt
+  cheap: True

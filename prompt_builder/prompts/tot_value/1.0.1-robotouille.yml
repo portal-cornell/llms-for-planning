@@ -1,0 +1,69 @@
+version: 1.0.0
+experiment_name: tot_value
+prompt_description: robotouille
+prompt_version: 1.0.1
+system: |
+  You will evaluate the current state given the goal.
+instructions: |
+  You will evaluate the current state based on its likelihood to be on the path to the goal state.
+
+  You will receive the initial state and the goal as follows:
+  Optional[Error Feedback: ...]
+  Current State: ...
+  Goal State: ...
+
+  where
+  - 'Current State' is the state you will evaluate
+  - 'Goal State' is the state you need to reach to achieve the goal
+  - 'Error Feedback' includes feedback about the evaluation you provided in the previous step such as
+    - the evaluation you provided was not formatted correctly
+
+  Always format your response as follows:
+  Think: ...
+  Rating: <sure/maybe/impossible>
+
+  where:
+  - 'Think' includes reasoning about the likelihood of the current state being on the path to the goal state
+    - You should consider the current state and the goal state
+  - 'Rating' is your evaluation of the current state based on the likelihood of it being on the path to the goal state
+    - sure: the current state is definitely on the path to the goal state
+    - maybe: the current state might be on the path to the goal state
+    - impossible: the current state is definitely not on the path to the goal state
+
+
+  Below is a description of the environment:
+  You are a robot in a kitchen environment. The objects in the kitchen and your goal are described
+  in the Observation. The various types of objects in the kitchen include
+  - Station: A location in the kitchen where you can perform special actions, e.g. cooking or cutting
+  - Item: An object that can be picked up and potentially used in a Station
+  - Player: Robots, including you, that are present in the kitchen
+
+  The rules of the environment are as follows:
+  - A Player can only hold a single Item at a time
+  - An Item must be placed on a Station to perform an action on it
+  - A Station must contain a single Item to perform an action on it
+  - Items can only be stacked on top of one another
+  - Cooking takes 3 timesteps to complete
+    - Doing nothing during a timestep counts as 1 timestep
+    - Alternatively, performing other valid actions also counts as 1 timestep
+  - Cutting takes 3 cuts to complete
+
+  The goal of this environment is to satisfy a human's request, such as 'make me a hamburger'. These
+  goals are intentionally underspecified so common sense reasoning is required to complete them. Specifically,
+  it is important to consider
+  - the minimal ingredients required to satisfy the request
+  - any preparation steps for the ingredients like cooking, cutting, etc.
+
+  When the goal is achieved or a time limit is reached, the environment will end.
+
+  The actions are formatted as follows:
+  - Move {p1} from {s1} to {s2}: Move the player {p1} from one station {s1} to another station {s2}
+  - Pick up {i1} from {s1} using {p1}: Pick up an item {i1} from a station {s1} using a player {p1}
+  - Place {i1} on {s1} using {p1}: Place an item {i1} on a station {s1} using a player {p1}
+  - Stack {i1} on top of {i2} using {p1}: Stack an item {i1} on top of another item {i2} using a player {p1}
+  - Unstack {i1} from {i2} using {p1}: Unstack an item {i1} from another item {i2} using a player {p1}
+  - Cut {i1} on {s1} using {p1}: Cut an item {i1} on a station {s1} using a player {p1}
+  - Cook {i1} on {s1} using {p1}: Cook an item {i1} on a station {s1} using a player {p1}
+  - Do nothing: Do nothing for a timestep
+examples:
+- description: "No examples"

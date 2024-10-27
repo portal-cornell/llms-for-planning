@@ -1,0 +1,75 @@
+llm:
+  expensive_llm: gpt-4-turbo
+  cheap_llm: gpt-3.5-turbo
+  temperature: 0.7
+  max_attempts: 10
+  debug: false
+  sleep_time: 5
+  mock: false
+  completion_tokens: 1
+  prompts:
+    plan_generation_prompt:
+      messages: ???
+      experiment_name: ???
+      prompt_description: ???
+      prompt_version: ???
+      model: ${llm.expensive_llm}
+      temperature: ${llm.temperature}
+      max_attempts: ${llm.max_attempts}
+      debug: ${llm.debug}
+      sleep_time: ${llm.sleep_time}
+      mock: ${llm.mock}
+      completion_tokens: ${llm.completion_tokens}
+    action_proposal_prompt:
+      messages: ???
+      experiment_name: lazy_search
+      prompt_description: state-history
+      prompt_version: 1.0.2
+      model: ${llm.expensive_llm}
+      temperature: ${llm.temperature}
+      max_attempts: ${llm.max_attempts}
+      debug: ${llm.debug}
+      sleep_time: ${llm.sleep_time}
+      mock: ${llm.mock}
+      completion_tokens: ${llm.completion_tokens}
+    state_selection_prompt:
+      messages: ???
+      experiment_name: ???
+      prompt_description: ???
+      prompt_version: ???
+      model: ${llm.expensive_llm}
+      temperature: ${llm.temperature}
+      max_attempts: ${llm.max_attempts}
+      debug: ${llm.debug}
+      sleep_time: ${llm.sleep_time}
+      mock: ${llm.mock}
+      completion_tokens: ${llm.completion_tokens}
+    state_translation_prompt:
+      messages: ???
+      experiment_name: state_translation_blocksworld
+      prompt_description: succinct
+      prompt_version: 1.0.1
+      model: ${llm.expensive_llm}
+      temperature: ${llm.temperature}
+      max_attempts: ${llm.max_attempts}
+      debug: ${llm.debug}
+      sleep_time: ${llm.sleep_time}
+      mock: ${llm.mock}
+      completion_tokens: ${llm.completion_tokens}
+planner:
+  plan_policy: lazy
+  backend: pddlgym
+  env_name: ???
+  domain_file: data/blocksworld/blocksworld-4ops.pddl
+  render_fn_name: blocksworld
+  graph_file: ${hydra:runtime.output_dir}/graph_lazy.png
+  log_file: ${hydra:runtime.output_dir}/log_lazy.txt
+  results_file: ???
+  instance_dir: data/blocksworld/success_io
+  samples: 324
+  seed: 42
+  max_steps: 20
+  cheap: true
+  num_actions: 1
+  multi_threaded: true
+  num_workers: 30

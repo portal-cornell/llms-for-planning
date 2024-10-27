@@ -75,7 +75,7 @@ def populate_messages(cfg):
             messages = fetch_messages(experiment_name, prompt_description, prompt_version)
             llm_cfg.prompts[prompt_name]["messages"] = messages
 
-def setup_instance_logging_directory(instance_obj, instance_dir, cfg, kwargs):
+def setup_instance_logging_directory(instance_name, cfg, kwargs):
     """Creates a logging directory for the instance.
     
     Note that the actual instance directory is passed in along with the instance
@@ -95,10 +95,11 @@ def setup_instance_logging_directory(instance_obj, instance_dir, cfg, kwargs):
     
     Side Effects:
         - The graph and log file names in the configuration are updated
+    
+    Returns:
+        instance_logging_dir (str)
+            The path to the logging directory for the instance
     """
-    instance_abspath = instance_obj.problem_fname
-    instance_filename = os.path.basename(instance_abspath)
-    instance_name = os.path.splitext(instance_filename)[0]
     output_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     instance_logging_dir = os.path.join(output_dir, instance_name)
     os.makedirs(instance_logging_dir, exist_ok=True)
@@ -108,9 +109,7 @@ def setup_instance_logging_directory(instance_obj, instance_dir, cfg, kwargs):
     if cfg.planner.get("log_file"):
         log_filename = os.path.basename(cfg.planner.log_file)
         kwargs["planner"]["log_file"] = os.path.join(instance_logging_dir, log_filename)
-    actual_instance = os.path.join(instance_dir, instance_filename) # This file exists unlike `instance_abspath`
-    instance_abspath_new = os.path.join(instance_logging_dir, instance_filename)
-    shutil.copy2(actual_instance, instance_abspath_new)
+    return instance_logging_dir
 
 def parse_log(log_file_path):
     """Parses the log file to get the results of the planner.
@@ -201,22 +200,42 @@ def log_planner_results(log_file, optimal_plan, statistics):
             f.write(f"Optimal plan: {json.dumps(str_optimal_plan)}\n")
             f.write("\n")
 
-def planning_loop(i, cfg, model, instance_dir, kwargs):
-    instance_obj = model.env.problems[i]
-    setup_instance_logging_directory(instance_obj, instance_dir, cfg, kwargs)
-    model.env.fix_problem_index(i)
+def planning_loop(i, cfg, model, kwargs):
+    if cfg.planner.backend == "pddlgym":
+        instance_obj = model.env.problems[i]
+        instance_abspath = instance_obj.problem_fname
+        instance_filename = os.path.basename(instance_abspath)
+        instance_name = os.path.splitext(instance_filename)[0]
+    elif cfg.planner.backend == "robotouille":
+        env_name = cfg.planner.get("env_name", None)
+        seeds = cfg.planner.get("seeds", None)
+        instance_name = f"{env_name}_{seeds[i]}"
+    instance_logging_dir = setup_instance_logging_directory(instance_name, cfg, kwargs)
+    if cfg.planner.backend == "pddlgym":
+        instance_dir = cfg.planner.get("instance_dir", None)
+        actual_instance = os.path.join(instance_dir, instance_filename) # This file exists unlike `instance_abspath`
+        instance_abspath_new = os.path.join(instance_logging_dir, instance_filename)
+        shutil.copy2(actual_instance, instance_abspath_new)
+        model.env.fix_problem_index(i)
     initial_state, _ = model.env.reset()
     if cfg.planner.plan_policy == "fd":
         log_file = kwargs["planner"].get("log_file")
-        optimal_plan, statistics = pddlgym_utils.get_optimal_plan(model.env.domain, initial_state)
+        assert cfg.planner.alias, "Alias must be provided for running FastDownward"
+        optimal_plan, statistics = pddlgym_utils.get_optimal_plan(model.env.domain, initial_state, cfg.planner.alias)
         log_planner_results(log_file, optimal_plan, statistics)
         return None, None
     plan_policy = NAME_TO_POLICY[cfg.planner.plan_policy](kwargs)
-    goal = initial_state.goal
+    if cfg.planner.backend == "pddlgym":
+        goal = initial_state.goal
+    else:
+        goal = None
     reached_goal, action_sequence, graph = plan(plan_policy, model, initial_state, goal, cfg.planner.max_steps)
     
     # Get optimal plan
-    optimal_plan, statistics = pddlgym_utils.get_optimal_plan(model.env.domain, initial_state)
+    if cfg.planner.backend == "pddlgym":
+        optimal_plan, _ = pddlgym_utils.get_optimal_plan(model.env.domain, initial_state)
+    else:
+        optimal_plan = []
 
     log_file = kwargs["planner"].get("log_file")
     if log_file:
@@ -265,6 +284,12 @@ def run_planner(cfg: DictConfig) -> None:
         instance_dir = cfg.planner.get("instance_dir", None)
         render_fn_name = cfg.planner.get("render_fn_name", None)
         model = pddlgym_utils.make_pddlgym_model(env_name, domain_file, instance_dir, render_fn_name)
+    elif cfg.planner.backend == "robotouille":
+        env_name = cfg.planner.get("env_name", None)
+        noisy_randomization = cfg.planner.get("noisy_randomization", False)
+        seeds = cfg.planner.get("seeds", [])
+        models = [pddlgym_utils.make_robotouille_model(env_name, seed, noisy_randomization) for seed in seeds]
+        assert len(models) > 0, "Seeds must be provided for Robotouille"
     else:
         raise NotImplementedError(f"Backend {cfg.planner.backend} not implemented")
     
@@ -274,23 +299,29 @@ def run_planner(cfg: DictConfig) -> None:
     kwargs["prompt_fn"] = prompt_llm # Cannot include functions in config
 
     # Start planning
-    num_problems = len(model.env.problems)
-    instances = min(cfg.planner.samples, num_problems)
-    instance_idx = random.sample(range(num_problems), instances)
-    if cfg.planner.get("multi_threaded", False):
-        with ThreadPoolExecutor(max_workers=cfg.planner.get("num_workers", 5)) as executor:
-            worker = lambda i: planning_loop(i, deepcopy(cfg), deepcopy(model), instance_dir, deepcopy(kwargs))
-            futures = [executor.submit(worker, i) for i in instance_idx]
-            for future in as_completed(futures):
-                graph, graph_file = future.result()
-                if graph_file:
+    if cfg.planner.backend == "pddlgym":
+        num_problems = len(model.env.problems)
+        instances = min(cfg.planner.samples, num_problems)
+        instance_idx = random.sample(range(num_problems), instances)
+        if cfg.planner.get("multi_threaded", False):
+            with ThreadPoolExecutor(max_workers=cfg.planner.get("num_workers", 5)) as executor:
+                worker = lambda i: planning_loop(i, deepcopy(cfg), deepcopy(model), instance_dir, deepcopy(kwargs))
+                futures = [executor.submit(worker, i) for i in instance_idx]
+                for future in as_completed(futures):
+                    graph, graph_file = future.result()
+                    if graph_file:
+                        visualize_graph(graph, graph_file)
+        else:
+            for i in tqdm(instance_idx):
+                graph, graph_file = planning_loop(i, cfg, model, kwargs)
+                if graph_file and cfg.planner.plan_policy != "fd":
+                    # TODO: Allow for FD to be visualized
                     visualize_graph(graph, graph_file)
-    else:
-        for i in tqdm(instance_idx):
-            graph, graph_file = planning_loop(i, cfg, model, instance_dir, kwargs)
+    elif cfg.planner.backend == "robotouille":
+        for i in range(len(models)):
+            graph, graph_file = planning_loop(i, cfg, models[i], kwargs)
             if graph_file:
                 visualize_graph(graph, graph_file)
-
     log_name = os.path.basename(cfg.planner.log_file)
     create_results_csv(log_name)
 

@@ -30,3 +30,38 @@
    # Fill in variables and save file
    direnv allow .
    ```
+
+## Running experiments
+
+This repository uses [Hydra](https://hydra.cc/) for configuration management, [PDDLGym](https://github.com/tomsilver/pddlgym) and [pddlgym_planners](https://github.com/ronuchit/pddlgym_planners) to run PDDL experiments, and [Robotouille](https://github.com/portal-cornell/robotouille) to run Robotouille experiments.
+
+To run an experiment on Blocksworld, use the following command:
+
+```sh
+# Run Boomerang on Blocksworld
+python main_script.py +experiments=lazy_planner +planner.domain_file=datasets/blocksworld/domain.pddl +planner.instance_dir=datasets/blocksworld/problems +planner.render_fn_name=blocksworld ++planner.samples=600 ++planner.seed=42 ++planner.max_steps=20 ++llm.temperature=0.7
+
+# Run ReAct on Blocksworld
+python main_script.py +experiments=react_planner +planner.domain_file=datasets/blocksworld/domain.pddl +planner.instance_dir=datasets/blocksworld/problems +planner.render_fn_name=blocksworld ++planner.samples=600 ++planner.seed=42 ++planner.max_steps=20 ++llm.temperature=0.7
+
+# Run ToI-BFS (b=2) on Blocksworld
+python main_script.py +experiments=tot_bfs_planner +planner.domain_file=datasets/blocksworld/domain.pddl +planner.instance_dir=datasets/blocksworld/problems +planner.render_fn_name=blocksworld ++planner.samples=600 ++planner.seed=42 ++planner.max_steps=20  ++planner.candidate_states=2 ++llm.temperature=0.7
+
+# Run ToI-DFS on Blocksworld
+python main_script.py +experiments=tot_dfs_planner +planner.domain_file=datasets/blocksworld/domain.pddl +planner.instance_dir=datasets/blocksworld/problems +planner.render_fn_name=blocksworld ++planner.samples=600 ++planner.seed=42 ++planner.max_steps=20 ++llm.temperature=0.7
+
+# Run classical planners on Blocksworld (all 9 configurations)
+python main_script.py --multirun +experiments=fd_planner ++planner.alias="a*-lmcut","wa*-lmcut","bfs-lmcut","a*-ff","wa*-ff","bfs-ff","a*-cg","wa*-cg","bfs-cg" +planner.domain_file=datasets/blocksworld/domain.pddl +planner.instance_dir=datasets/blocksworld/problems ++planner.samples=600 ++planner.seed=42
+```
+
+to run experiments on other PDDL domains, replace `datasets/blocksworld/domain.pddl` and `datasets/blocksworld/problems` with the appropriate domain and problem files and `+planner.render_fn_name` with the corresponding render function in PDDLGym (if one exists).
+
+To run an experiment on Robotouille, use the following command:
+
+```sh
+# Run Boomerang on Robotouille
+python main_script.py --multirun +experiments=lazy_planner_robotouille ++planner.env_name=_llms_for_planning/assemble_one_by_one,_llms_for_planning/assemble_parallel,_llms_for_planning/base_cook,_llms_for_planning/base_cut,_llms_for_planning/cheese_burger,_llms_for_planning/cook_patties,_llms_for_planning/cook_then_cut,_llms_for_planning/cut_lettuces,_llms_for_planning/cut_then_cook,_llms_for_planning/lettuce_only_burger ++planner.max_steps=20 _planner.noisy_randomization=True ++llm.temperature=0.7
+
+# Run ToI-DFS on Robotouille
+python main_script.py --multirun +experiments=tot_dfs_planner_robotouille ++planner.env_name=_llms_for_planning/assemble_one_by_one,_llms_for_planning/assemble_parallel,_llms_for_planning/base_cook,_llms_for_planning/base_cut,_llms_for_planning/cheese_burger,_llms_for_planning/cook_patties,_llms_for_planning/cook_then_cut,_llms_for_planning/cut_lettuces,_llms_for_planning/cut_then_cook,_llms_for_planning/lettuce_only_burger ++planner.max_steps=20 _planner.noisy_randomization=True ++llm.temperature=0.7
+```

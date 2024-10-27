@@ -1,0 +1,300 @@
+ACTIONS PROPOSAL 1 PROMPT
+--------------------
+
+[Skip LLM] The number of valid actions is less than the number of actions requested.
+
+Actions:
+- pick-up(b:default)
+- unstack(c:default,a:default)
+
+
+VALUE PROMPT 1
+--------------------
+
+Current State:
+In the described environment, there are four objects, labeled as 'a', 'b', 'c', and 'd'. These are blocks in a setup where:
+- Block 'c' is clear, meaning there is nothing on top of it.
+- The robot hand is currently holding block 'b'.
+- Block 'a' is positioned on block 'd'.
+- Block 'd' is directly on the table.
+- Additionally, block 'c' is on top of block 'a'.
+
+This configuration indicates a scenario where blocks are stacked in a specific order and the robot hand is engaged with one block, ready to perform an action such as moving or placing it.
+Goal State:
+The environment consists of a set of blocks, a table, and a robot hand. The blocks can be placed on top of each other or on the table. A block is considered clear if there is nothing on top of it. The robot hand can either hold a block or be empty.
+
+The current goal is to arrange the blocks such that block C is on top of block D, and block D is on top of block A.
+
+
+VALUE RESPONSE 1
+--------------------
+
+Think: The current state describes block 'c' being on top of block 'a', and block 'a' being on top of block 'd'. The goal state requires block 'c' to be directly on top of block 'd', which is on top of block 'a'. Currently, block 'c' is indeed on top of block 'a' as required, but not directly on 'd'. The robot hand holding block 'b' does not interfere with achieving the goal as block 'b' is not mentioned in the goal state configuration. The robot can place block 'b' down and proceed to rearrange blocks 'c' and 'a' to achieve the goal state.
+
+Rating: maybe
+
+VALUE PROMPT 2
+--------------------
+
+Current State:
+The environment consists of four blocks labeled as A, B, C, and D, along with predicates that describe their current configuration and status:
+
+1. Block D is on the table.
+2. Block B is on the table and is clear, meaning no other block is on top of it.
+3. Block A is on top of Block D and is also clear.
+4. The robot hand is currently holding Block C.
+
+This setup describes the initial state of blocks in relation to each other and their clear status, as well as the status of the robot hand.
+Goal State:
+The environment consists of a set of blocks, a table, and a robot hand. The blocks can be placed on top of each other or on the table. A block is considered clear if there is nothing on top of it. The robot hand can either hold a block or be empty.
+
+The current goal is to arrange the blocks such that block C is on top of block D, and block D is on top of block A.
+
+
+VALUE RESPONSE 2
+--------------------
+
+Think: To reach the goal state where block C is on top of block D, and block D is on top of block A, several steps need to be considered based on the current state. Currently, block A is on top of block D, which is the inverse of the desired final configuration. Additionally, block C is currently being held by the robot hand. Given the current configuration:
+
+1. The robot would need to put down block C.
+2. Then, it would need to unstack block A from block D.
+3. Next, re-stack block D onto block A.
+4. Finally, stack block C onto block D.
+
+The robot's current holding of block C is appropriate for moving towards the goal, as it needs to be eventually stacked onto block D. The main challenge is rearranging blocks A and D, which is feasible as long as the robot hand operates correctly in unstacking and restacking.
+
+Rating: maybe
+
+ACTIONS PROPOSAL 1 PROMPT
+--------------------
+
+[Skip LLM] The number of valid actions is less than the number of actions requested.
+
+Actions:
+- stack(b:default,c:default)
+- put-down(b:default)
+
+
+ACTIONS PROPOSAL 2 PROMPT
+--------------------
+
+Number of Actions: 2
+Current State:
+The environment consists of four blocks labeled as A, B, C, and D, along with predicates that describe their current configuration and status:
+
+1. Block D is on the table.
+2. Block B is on the table and is clear, meaning no other block is on top of it.
+3. Block A is on top of Block D and is also clear.
+4. The robot hand is currently holding Block C.
+
+This setup describes the initial state of blocks in relation to each other and their clear status, as well as the status of the robot hand.
+Valid Actions:
+- put-down(c:default)
+- stack(c:default,a:default)
+- stack(c:default,b:default)
+Goal State:
+The environment consists of a set of blocks, a table, and a robot hand. The blocks can be placed on top of each other or on the table. A block is considered clear if there is nothing on top of it. The robot hand can either hold a block or be empty.
+
+The current goal is to arrange the blocks such that block C is on top of block D, and block D is on top of block A.
+
+
+ACTIONS PROPOSAL 2 RESPONSE
+--------------------
+
+Think: In the current state, the robot hand is holding Block C, and the goal state requires Block C to be on top of Block D, with Block D on top of Block A. We need to address the arrangement of Block D and Block A first, as Block D needs to be on top of Block A. However, Block A is already on top of Block D. Thus, the positioning of D on A is correct, and we can focus on placing Block C. The valid action to stack Block C on Block D aligns with the goal configuration.
+
+Actions: stack(c:default,d:default), put-down(c:default)
+
+ACTIONS PROPOSAL 2 PROMPT
+--------------------
+
+Error Feedback: Action 'stack(c:default,d:default)' is not a valid action for the current state.
+Number of Actions: 2
+Current State:
+The environment consists of four blocks labeled as A, B, C, and D, along with predicates that describe their current configuration and status:
+
+1. Block D is on the table.
+2. Block B is on the table and is clear, meaning no other block is on top of it.
+3. Block A is on top of Block D and is also clear.
+4. The robot hand is currently holding Block C.
+
+This setup describes the initial state of blocks in relation to each other and their clear status, as well as the status of the robot hand.
+Valid Actions:
+- put-down(c:default)
+- stack(c:default,a:default)
+- stack(c:default,b:default)
+Goal State:
+The environment consists of a set of blocks, a table, and a robot hand. The blocks can be placed on top of each other or on the table. A block is considered clear if there is nothing on top of it. The robot hand can either hold a block or be empty.
+
+The current goal is to arrange the blocks such that block C is on top of block D, and block D is on top of block A.
+
+
+ACTIONS PROPOSAL 2 RESPONSE
+--------------------
+
+Think: The goal is to have block C on top of block D, with block D on top of block A. Currently, block A is on top of block D, and the robot hand is holding block C. To progress towards the goal, block C should be placed on block B, which is clear and on the table, freeing up the robot hand. Then, the situation will be reassessed based on the new state, with the intent of moving towards the goal configuration.
+
+Actions: stack(c:default,b:default), put-down(c:default)
+
+VALUE PROMPT 1
+--------------------
+
+Current State:
+In the current environment set up within a Blocksworld domain, there are four blocks labeled as A, B, C, and D. The configuration and status of these blocks and the robot hand are as follows:
+
+1. The robot hand is empty.
+2. Block B is clear, meaning there is no block on top of B.
+3. Block A is placed on top of Block D.
+4. Block D is on the table.
+5. Block B is on top of Block C.
+6. Block C is on top of Block A.
+
+This setting describes a scenario with a stack formation where Block D is at the base on the table, Block A is stacked on D, Block C is on A, and Block B is at the top. The robot hand is available to manipulate any of the blocks as needed.
+Goal State:
+The environment consists of a set of blocks, a table, and a robot hand. The blocks can be placed on top of each other or on the table. A block is considered clear if there is nothing on top of it. The robot hand can either hold a block or be empty.
+
+The current goal is to arrange the blocks such that block C is on top of block D, and block D is on top of block A.
+
+
+VALUE RESPONSE 1
+--------------------
+
+Think: The description of the current state and the goal state implies a reconfiguration of the blocks. The blocks need to be rearranged from the current state, where the sequence is D-A-C-B, to the goal state sequence of D-A-C. Notably, Block B, which is currently on top of Block C, needs to be removed from its position to achieve the goal state. Since Block C needs to be on top of Block D directly, and the robot hand is empty and ready for operations, the current state has the potential to transition toward the goal state with a series of moves.
+
+Rating: maybe
+
+VALUE PROMPT 2
+--------------------
+
+Current State:
+In the described Blocksworld environment, we have four blocks labeled as A, B, C, and D, and a table. Currently, block C is positioned on top of block A, and block A is on top of block D. Both blocks B and D are placed directly on the table. The robot hand is not holding any blocks at the moment (it is empty). Additionally, blocks C and B are clear, meaning there are no blocks on top of them, allowing for potential actions involving these blocks.
+Goal State:
+The environment consists of a set of blocks, a table, and a robot hand. The blocks can be placed on top of each other or on the table. A block is considered clear if there is nothing on top of it. The robot hand can either hold a block or be empty.
+
+The current goal is to arrange the blocks such that block C is on top of block D, and block D is on top of block A.
+
+
+VALUE RESPONSE 2
+--------------------
+
+Think: In the current state, block C is on top of block A, and block A is on top of block D. The goal state requires block C to be directly on top of block D, with block D being on top of block A. Although the current arrangement has all the mentioned blocks in a vertical alignment, the order is not correct according to the goal state. The required action would be to unstack block C from block A, and then stack it on block D. Since block D is already at the bottom with block A on top, repositioning block C directly requires only a minor rearrangement. The robot hand is empty and ready to perform these actions, and block B being clear does not interfere with achieving the goal.
+
+Rating: sure
+
+VALUE PROMPT 3
+--------------------
+
+Current State:
+In the described Blocksworld environment, there are four blocks named A, B, C, and D, along with a table and a robot hand. The current configuration of these blocks and the state of the robot hand are as follows:
+
+- Block D is on the table.
+- Block B is also on the table.
+- Block A is placed on top of Block D, and Block C is on top of Block B.
+- Blocks A and C are clear, meaning no blocks are placed on top of them.
+- The robot hand is empty at the moment, allowing it to perform actions such as picking up a clear block or manipulating the blocks to achieve a desired configuration.
+Goal State:
+The environment consists of a set of blocks, a table, and a robot hand. The blocks can be placed on top of each other or on the table. A block is considered clear if there is nothing on top of it. The robot hand can either hold a block or be empty.
+
+The current goal is to arrange the blocks such that block C is on top of block D, and block D is on top of block A.
+
+
+VALUE RESPONSE 3
+--------------------
+
+Think: To achieve the goal state where block C is on top of block D, and block D is on top of block A, the following steps are necessary from the current state:
+1. Unstack block C from block B (since C is clear and on top of B).
+2. Pick up block A (since A is clear and on top of D).
+3. Stack block D on top of block A (after picking up A).
+4. Finally, stack block C on top of block D.
+
+Since the robot hand is currently empty, it allows for immediate action to manipulate blocks, such as picking up block C or A directly. The current arrangement where blocks C and A are clear supports the necessary actions to reach the goal. The configuration of blocks B and D on the table does not interfere with achieving the goal state but does require some reordering.
+
+Rating: maybe
+
+The current state is generally aligned with the requirements for achieving the goal state, but several moves are required to reposition the blocks correctly. Thus, while it's feasible, the sequence of moves and the current configuration suggest that we are not yet certain if this is the most direct path without knowing other possible intervening states.
+
+VALUE PROMPT 4
+--------------------
+
+Current State:
+In the current environment, which involves moving blocks in a Blocksworld setting, we have four blocks labeled as A, B, C, and D. Here is the state of these blocks and the robot's hand:
+
+1. The robot's hand is currently empty.
+2. All four blocks (A, B, C, D) are clear, meaning there are no blocks on top of them.
+3. Blocks B, C, and D are on the table.
+4. Block A is on top of Block D.
+
+This setup represents a scenario where each block is accessible for manipulation by the robot, which can perform actions such as picking up or stacking the blocks as needed.
+Goal State:
+The environment consists of a set of blocks, a table, and a robot hand. The blocks can be placed on top of each other or on the table. A block is considered clear if there is nothing on top of it. The robot hand can either hold a block or be empty.
+
+The current goal is to arrange the blocks such that block C is on top of block D, and block D is on top of block A.
+
+
+VALUE RESPONSE 4
+--------------------
+
+Think: In the current state, the robot's hand is empty, which is beneficial for starting any block manipulation. The goal is to have block C on block D, and block D on block A. The current setup has block A on top of D, which is not the desired order. To transition towards the goal state, block A needs to be removed from on top of D and placed on the table or eventually on top of block D after D is placed on block A. Block C, which is already clear and on the table, can easily be placed on block D once the arrangement of A and D is corrected. Therefore, a series of strategic moves involving unstacking and stacking can lead directly to the goal state.
+
+Rating: maybe
+
+ACTIONS PROPOSAL 1 PROMPT
+--------------------
+
+[Skip LLM] The number of valid actions is less than the number of actions requested.
+
+Actions:
+
+
+
+ACTIONS PROPOSAL 2 PROMPT
+--------------------
+
+[Skip LLM] The number of valid actions is less than the number of actions requested.
+
+Actions:
+- unstack(b:default,c:default)
+
+
+VALUE PROMPT 1
+--------------------
+
+Current State:
+In the described environment, there are four objects, labeled as 'a', 'b', 'c', and 'd'. These are blocks in a setup where:
+- Block 'c' is clear, meaning there is nothing on top of it.
+- The robot hand is currently holding block 'b'.
+- Block 'a' is positioned on block 'd'.
+- Block 'd' is directly on the table.
+- Additionally, block 'c' is on top of block 'a'.
+
+This configuration indicates a scenario where blocks are stacked in a specific order and the robot hand is engaged with one block, ready to perform an action such as moving or placing it.
+Goal State:
+The environment consists of a set of blocks, a table, and a robot hand. The blocks can be placed on top of each other or on the table. A block is considered clear if there is nothing on top of it. The robot hand can either hold a block or be empty.
+
+The current goal is to arrange the blocks such that block C is on top of block D, and block D is on top of block A.
+
+
+VALUE RESPONSE 1
+--------------------
+
+Think: In the current state, block 'a' is on block 'd', and block 'c' is on top of block 'a'. The robot hand is holding block 'b'. To move towards the goal state where block 'c' should be on top of block 'd', which in turn should be on top of block 'a', reordering is necessary. First, block 'c' needs to be removed from atop block 'a' and placed on the table or held by the robot hand. Since the robot hand is currently holding block 'b', block 'b' must be placed down first, then block 'c' can be picked up and eventually moved to its correct position on block 'd'. The goal requires a series of actions to rearrange the blocks, but the current configuration does have all the necessary components present and in a modifiable configuration. Hence, it is feasible to achieve the goal from the current state with a series of correct moves.
+
+Rating: maybe
+
+ACTIONS PROPOSAL 1 PROMPT
+--------------------
+
+[Skip LLM] The number of valid actions is less than the number of actions requested.
+
+Actions:
+
+
+
+
+
+Reached goal: False
+Action sequence: []
+Total nodes expanded: 6
+Total edges expanded: 7
+Optimal plan: ["unstack(c:default,a:default)", "stack(c:default,b:default)", "unstack(a:default,d:default)", "put-down(a:default)", "pick-up(d:default)", "stack(d:default,a:default)", "unstack(c:default,b:default)", "stack(c:default,d:default)"]
+

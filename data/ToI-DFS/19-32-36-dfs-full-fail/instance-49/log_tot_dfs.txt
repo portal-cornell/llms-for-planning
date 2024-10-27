@@ -1,0 +1,103 @@
+ACTIONS PROPOSAL PROMPT
+--------------------
+
+[Skip LLM] The number of valid actions is less than the number of actions requested.
+
+Actions:
+- unstack(a:default,c:default)
+
+
+VALUE PROMPT 1
+--------------------
+
+Current State:
+In the current environment, there are four blocks labeled as A, B, C, and D. Block C is placed on top of Block B, and Block B is on top of Block D. Block D is positioned directly on the table. The top surface of Block C is clear, indicating there are no blocks on it. The robot hand is currently holding Block A.
+Goal State:
+The goal in this environment is to arrange a set of blocks in a specific configuration where block B is on top of block D, block C is on top of block A, and block D is on top of block C.
+
+
+VALUE RESPONSE 1
+--------------------
+
+Think: The goal is to have a stack in the order of B, D, C, A from top to bottom. Currently, Block C is on B, and B is on D, which is partially correct according to the goal for B and D. However, Block C should not be on B but rather on A according to the goal. The robot hand holding A is a good step towards rearranging the blocks, as A needs to be placed under C. This setup could be moving towards the goal if the next steps involve manipulating Block C correctly after placing A.
+
+Rating: maybe
+
+ACTIONS PROPOSAL PROMPT
+--------------------
+
+[Skip LLM] The number of valid actions is less than the number of actions requested.
+
+Actions:
+- stack(a:default,c:default)
+- put-down(a:default)
+
+
+VALUE PROMPT 1
+--------------------
+
+Current State:
+In the current scenario, the environment consists of four blocks labeled as A, B, C, and D, along with a table and a robot hand capable of manipulating these blocks. Here's a summary of the state of the blocks and the robot hand:
+
+1. Block C is placed on top of Block B.
+2. Block B is positioned on top of Block D.
+3. Blocks A and D are directly on the table.
+4. Both Blocks A and C are clear, meaning there are no blocks on top of them.
+5. The robot hand is empty, ready to pick up or manipulate blocks.
+
+This environment setup allows for actions such as moving blocks, with the ultimate goal of reconfiguring them, using operations like picking up, stacking, or unstacking blocks, depending on the specific objectives.
+Goal State:
+The goal in this environment is to arrange a set of blocks in a specific configuration where block B is on top of block D, block C is on top of block A, and block D is on top of block C.
+
+
+VALUE RESPONSE 1
+--------------------
+
+Think: The goal state is described as having block B on top of block D, block C on top of block A, and block D on top of block C. However, this described goal state is inherently impossible as it involves a circular arrangement where D is both below B and above C, while simultaneously C is supposed to be on top of A. This creates a logical contradiction given the physical limitations of the scenario, where no block can simultaneously be below and above another block. The current state, while stable and with free blocks ready to be manipulated, cannot be transformed into the described goal state because the goal state itself is unachievable by design.
+
+Rating: impossible
+
+VALUE PROMPT 2
+--------------------
+
+Current State:
+The environment consists of four blocks named A, B, C, and D, and a robot hand. Here's a summary of the current configuration:
+
+- Block C is on top of Block B.
+- Block B is on top of Block D.
+- Block D is directly on the table.
+- Block A is on top of Block C.
+  
+In this setup:
+- The robot's hand is empty.
+- Block A is clear, meaning nothing is on top of it.
+
+This configuration involves a stack of blocks with A at the top, followed by C, B, and D at the bottom on the table.
+Goal State:
+The goal in this environment is to arrange a set of blocks in a specific configuration where block B is on top of block D, block C is on top of block A, and block D is on top of block C.
+
+
+VALUE RESPONSE 2
+--------------------
+
+Think: The current state has Block D on the table with B on top of it and C on top of B, culminating with A at the top. The goal state requires B to be on top of D, which is already the case. However, C needs to be on top of A, which is the opposite of the current stacking order. To achieve the goal, a series of operations must be performed that include picking up A from C, rearranging C and A, and ensuring the correct stacking. Given the robot's ability to manipulate blocks, this is feasible but will require several correct steps.
+
+Rating: maybe
+
+ACTIONS PROPOSAL PROMPT
+--------------------
+
+[Skip LLM] The number of valid actions is less than the number of actions requested.
+
+Actions:
+
+
+
+
+
+Reached goal: False
+Action sequence: []
+Total nodes expanded: 3
+Total edges expanded: 3
+Optimal plan: ["unstack(a:default,c:default)", "put-down(a:default)", "unstack(c:default,b:default)", "stack(c:default,a:default)", "unstack(b:default,d:default)", "put-down(b:default)", "pick-up(d:default)", "stack(d:default,c:default)", "pick-up(b:default)", "stack(b:default,d:default)"]
+

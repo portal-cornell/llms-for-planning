@@ -1,0 +1,126 @@
+ACTIONS PROPOSAL PROMPT
+--------------------
+
+[Skip LLM] The number of valid actions is less than the number of actions requested.
+
+Actions:
+- pick-up(a:default)
+- unstack(b:default,d:default)
+
+
+VALUE PROMPT 1
+--------------------
+
+Current State:
+In the given environment, there are five blocks labeled as A, B, C, D, and E. The current configuration of these blocks and their status is as follows:
+
+- Block A is clear and is located on the table.
+- Block B is currently being held by the robot hand.
+- Block C is on the table and has Block E placed on top of it.
+- Block D is clear and is positioned on top of Block E.
+- Block E is not clear as it has Block D on top and is itself positioned on top of Block C.
+
+This setup forms a scenario where the robot hand is actively engaged, some blocks are stacked on others, while others are directly on the table, and certain blocks are clear, indicating they can be acted upon without moving other blocks first.
+Goal State:
+The goal in this environment is to arrange a set of blocks such that block A is positioned on top of block B, and block B is on top of block D.
+
+
+VALUE RESPONSE 1
+--------------------
+
+Think: The current state has a few steps to undergo to reach the goal state. The goal requires Block A on Block B and Block B on Block D. Currently, Block B is in the robot hand, which is a productive state as it needs to be moved to achieve the goal. Block D is already clear, which is beneficial since Block B needs to be placed on it. Once Block B is placed on Block D, Block A, which is clear and on the table, can be easily picked up and stacked on Block B. The major obstacle is rearranging Blocks C, D, and E to free up Block D, but since Block D is already clear, this isn't a concern in this scenario.
+
+Rating: sure
+
+VALUE PROMPT 2
+--------------------
+
+Current State:
+In the described environment, there are five objects labeled as a, b, c, d, and e. The current state of these objects is as follows:
+- Block b is on top of block d, and block b is clear (meaning no other block is on top of b).
+- Block c is on the table.
+- Block d is stacked on top of block e.
+- Block e is on top of block c, forming a vertical stack of blocks.
+- The robot hand is currently holding block a.
+
+These conditions define the setup and status of each block and the robot hand in this scenario.
+Goal State:
+The goal in this environment is to arrange a set of blocks such that block A is positioned on top of block B, and block B is on top of block D.
+
+
+VALUE RESPONSE 2
+--------------------
+
+Think: Evaluating the current state against the goal state, we see that the robot hand is currently holding block a, which aligns well with the goal of placing it on block b. However, there is a discrepancy with the arrangement of blocks b, d, and e. In the goal state, block b needs to be directly on top of block d, but currently, block b is on block d, which is on top of block e, forming a stack with block c underneath block e. This adds complexity to achieving the goal since block e and block c need to be repositioned or removed from the stack with block d to achieve the desired configuration.
+
+Rating: maybe
+
+ACTIONS PROPOSAL PROMPT
+--------------------
+
+[Skip LLM] The number of valid actions is less than the number of actions requested.
+
+Actions:
+- stack(a:default,b:default)
+- put-down(a:default)
+
+
+VALUE PROMPT 1
+--------------------
+
+Current State:
+In the described Blocksworld environment, there are five blocks named a, b, c, d, and e. The current configuration of these blocks and the robot hand is as follows:
+
+- Block a is clear and resting on the table.
+- Block b is clear and located on top of block d.
+- Block c is on the table and underneath block e.
+- Block d is on top of block e.
+- Block e is directly on top of block c.
+- The robot hand is currently empty.
+
+This setup involves stacked blocks and individual blocks directly on the table, with one of the blocks being clear and available for manipulation by the robot hand.
+Goal State:
+The goal in this environment is to arrange a set of blocks such that block A is positioned on top of block B, and block B is on top of block D.
+
+
+VALUE RESPONSE 1
+--------------------
+
+Think: In the current state, block a is clear and on the table, which is a good start. Block b is on top of block d, which aligns with part of the goal where block B needs to be on top of block D. However, block d is currently under block b and on top of block e, so it is not clear and ready to support block B directly as required in the goal state. To reach the goal state, block b needs to be moved off of block d and then after arranging block D and B as needed, block A will be placed on top of block B. Hence, reconfiguration is necessary, but the structure is partially aligned with the goal.
+
+Rating: maybe
+
+VALUE PROMPT 2
+--------------------
+
+Current State:
+In the environment consisting of blocks labeled A, B, C, D, and E, and a table, the following conditions are observed:
+
+1. Block B is placed on top of Block D.
+2. The robot's hand is currently empty.
+3. Block C is positioned directly on the table.
+4. Block A is clear, meaning no other block is on top of it.
+5. Block A is also on top of Block B.
+6. Block D is stacked on top of Block E.
+7. Block E is on top of Block C.
+
+This setup forms a complex structure of blocks with varying levels of stack and clear spaces, ready for manipulation tasks like moving blocks or changing the structure.
+Goal State:
+The goal in this environment is to arrange a set of blocks such that block A is positioned on top of block B, and block B is on top of block D.
+
+
+VALUE RESPONSE 2
+--------------------
+
+Think: The current state already satisfies a significant part of the goal state, where Block A is on top of Block B. Furthermore, Block B is already on top of Block D. Thus, the current description of the blocks' arrangement exactly matches the goal state described.
+
+Rating: sure
+
+
+
+Reached goal: True
+Action sequence: ["pick-up(a:default)", "stack(a:default,b:default)"]
+Total nodes expanded: 4
+Total edges expanded: 4
+Optimal plan: ["pick-up(a:default)", "stack(a:default,b:default)"]
+

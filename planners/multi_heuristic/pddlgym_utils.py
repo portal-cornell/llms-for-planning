@@ -11,6 +11,10 @@ import shutil
 
 import pddlgym
 from pddlgym_planners.fd import FD
+from pddlgym_planners.ff import FF
+
+from robotouille.env import LanguageSpace
+from robotouille.robotouille_env import create_robotouille_env
 
 # TODO(chalo2000): Move to separate location (along with the models)
 CURRENT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -267,7 +271,92 @@ class PDDLGymModel(Model):
         # # random.shuffle(goal_list) # Order doesn't matter - shuffling to avoid bias
         # goal_str = "\n".join([f"- {literal}: {satisfied}" for literal, satisfied in goal_list])
         return goal_str
+
+class RobotouilleModel(Model):
+    """A model for Robotouille environments."""
     
+    def __init__(self, env, **kwargs):
+        """Initializes the Robotouille model.
+        
+        Parameters:
+            env (gym.Env)
+                The environment to use for the model.
+            kwargs (dict)
+                The keyword arguments for the model.
+        """
+        super().__init__(env, **kwargs)
+    
+    def get_valid_actions(self, state):
+        """Returns the valid actions for the given state.
+        
+        Parameters:
+            state (object)
+                The state to get valid actions for
+        
+        Returns:
+            valid_actions (list)
+                The valid actions for the given state
+            str_valid_actions (list)
+                The string representation of the valid actions for the given state
+        """
+        return state.get_valid_actions_and_str()
+    
+    def did_reach_goal(self, state, goal):
+        """Returns whether the given state satisfies the given goal.
+        
+        Parameters:
+            state (object)
+                The state to check.
+            goal (object)
+                The goal to satisfy.
+        
+        Returns:
+            reached_goal (bool)
+                Whether the given state satisfies the given goal.
+        """
+        return self.env.current_state.is_goal_reached()
+    
+    def get_image_path(self):
+        """Returns the path to an image of the environment's current state
+        
+        Returns:
+            image_path (str)
+                The path to an image of the environment's current state
+        """
+        img = self.env.render("rgb_array")
+        plt.close()
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as temp_file:
+            imageio.imsave(temp_file.name, img)
+            return temp_file.name
+    
+    def state_to_str(self, state):
+        """Returns a string representation of the state.
+        
+        Parameters:
+            state (object)
+                The state to convert to a string.
+        
+        Returns:
+            state_str (str)
+                The string representation of the state.
+        """
+        return LanguageSpace.state_to_language_description(state)
+
+    def goal_to_str(self, state, goal):
+        """Returns a string representation of the goal.
+        
+        Parameters:
+            state (object)
+                The state to check.
+            goal (object)
+                The goal to convert to a string.
+        
+        Returns:
+            goal_str (str)
+                The string representation of the goal.
+        """
+        assert False, "Goal included in state, so do not call this function"
+
 def make_pddlgym_model(env_name=None, domain_file=None, instance_dir=None, render_fn_name=None):
     """Returns the model for the PDDLGym environment with the given name.
     
@@ -292,6 +381,25 @@ def make_pddlgym_model(env_name=None, domain_file=None, instance_dir=None, rende
     else:
         raise ValueError("Either env_name or (domain_dir, instance_dir, render_fn_name) must be provided.")
     model = PDDLGymModel(env)
+    return model
+
+def make_robotouille_model(env_name, seed=None, noisy_randomization=False):
+    """Returns the model for the Robotouille environment with the given name.
+    
+    Parameters:
+        env_name (Optional[str])
+            The name of the Robotouille environment to make.
+        seed (Optional[int])
+            The seed to use for randomization.
+        noisy_randomization (Optional[bool])
+            Whether to use noisy randomization.
+    
+    Returns:
+        model (RobotouilleModel)
+            The model for the Robotouille environment
+    """
+    env = create_robotouille_env(env_name, seed=seed, noisy_randomization=noisy_randomization)
+    model = RobotouilleModel(env)
     return model
 
 def render_pddlgym(model, step_time, render=False, close=False):
@@ -391,7 +499,7 @@ def play_env(env_name, max_steps=100, step_time=0.5, fps=4, mode="random", rende
         os.makedirs(os.path.dirname(gif_file), exist_ok=True)
         imageio.mimsave(gif_file, imgs, fps=4)
 
-def get_optimal_plan(domain, initial_state):
+def get_optimal_plan(domain, initial_state, alias="a*-lmcut"):
     """Returns the optimal plan for the environment using the Fast Downward planner.
     
     Parameters:
@@ -399,6 +507,8 @@ def get_optimal_plan(domain, initial_state):
             The domain for an environment
         initial_state (State)
             The initial state of the environment.
+        alias (str)
+            The alias to use for the planner.
     
     Returns:
         plan (List[pddlgym.structs.Literal])
@@ -406,6 +516,6 @@ def get_optimal_plan(domain, initial_state):
         statistics (dict)
             The statistics for the planner.
     """
-    planner = FD()
+    planner = FD(alias_flag=f"--alias {alias}")
     plan = planner(domain, initial_state)
     return plan, planner._statistics

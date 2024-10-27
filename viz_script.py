@@ -50,6 +50,7 @@ def get_stats(log_dir, results_csv, log_file, hydra_log_file):
     df = pd.DataFrame()
     llm_calls = 0
     llm_token_usage = 0
+    invalid_actions = {}
     for dirpath, dirnames, filenames in os.walk(log_dir):
         for filename in filenames:
             if filename == results_csv:
@@ -72,6 +73,37 @@ def get_stats(log_dir, results_csv, log_file, hydra_log_file):
                     if match:
                         llm_token_usage += int(match.group(1))
     return df, llm_calls, llm_token_usage
+
+def get_invalid_actions(log_dir, log_file):
+    """Returns the invalid actions for the log files.
+    
+    Parameters:
+        log_dir (str)
+            The directory containing the log files.
+        log_file (str)
+            The name of the log file.
+    
+    Returns:
+        invalid_actions (dict)
+            The dictionary containing the invalid actions.
+    """
+    instance_to_invalid_count = {}
+    for dirpath, dirnames, filenames in os.walk(log_dir):
+        for filename in filenames:
+            if filename == log_file:
+                curr_log_file = os.path.join(dirpath, filename)
+                with open(curr_log_file, "r") as f:
+                    log = f.readlines()
+                invalid_regex = re.compile(r"Error Feedback: The action '(.+)' at index")
+                basename = os.path.basename(dirpath)
+                invalid_actions = []
+                for line in log:
+                    match = invalid_regex.search(line)
+                    if match:
+                        invalid_action = match.group(1)
+                        if invalid_action not in invalid_actions:
+                            instance_to_invalid_count[basename] = instance_to_invalid_count.get(basename, 0) + 1
+    return instance_to_invalid_count
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
