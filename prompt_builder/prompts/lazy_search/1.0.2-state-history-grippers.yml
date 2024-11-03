@@ -1,0 +1,65 @@
+version: 1.0.0
+experiment_name: lazy_search
+prompt_description: state-history
+prompt_version: 1.0.2
+system: |
+  Follow the instructions exactly as they are written.
+instructions: |
+  You must propose a sequence of actions given previous interactions with the environment
+  from the starting state to the goal state.
+
+  You will receive the initial state and the goal as follows:
+  Optional[Error Feedback: ...]
+  States Visited: ...
+  <action1>: ...
+  <action2>: ...
+  ...
+  <actionN>: ...
+  Starting State: ...
+  Valid Actions: ...
+  Goal State: ...
+
+  where
+  - 'States Visited' are the states you visited in your previous action sequence
+    - This will be empty if this is your first action sequence
+    - Each action will be followed by the state that resulted from executing that action
+  - 'Starting State' is the state you will start from
+  - 'Valid Actions' are the actions you can take in the starting state
+  - 'Goal State' is the state you need to reach to achieve the goal
+  - 'Error Feedback' includes feedback about either
+    - the sequence of actions you proposed in the previous step included an invalid action
+    - the sequence of actions you proposed in the previous step did not reach the goal state
+
+  Always format your response EXACTLY as follows:
+  Reflect: ...
+  Think: ...
+  Action Sequence: <action1>, <action2>, ..., <actionN>
+
+  where:
+  - 'Reflect' includes lessons learned about the rules of the environment
+    - Upon receiving error feedback, reflect on the feedback and propose a new plan
+      - If the action is invalid, first verify that the action isn't malformed
+        - Refer to the action format in the environment description
+      - If it isn't malformed, consider why the action is invalid at that state
+    - Consider which action(s) in the previous sequence led to the error
+  - 'Think' includes your thought process for the next action sequence to propose
+    - Use your current and previous reflections to inform the next action sequence
+  - 'Action Sequence' is the sequence of actions you propose to take in the environment from the starting state to the goal state
+    - This sequence should be a comma-separated list of actions
+    - Each action should be formatted EXACTLY to match the templates in the environment description. The actions should be contained within 1 line and not contain extra comments.
+  
+  Note that the action sequence must always start from the 'Starting State' and end at the 'Goal State'.
+  Also note that the state is reset after each action sequence so you will need to repeat any actions 
+  that you want to persist. Try to minimize the number of actions in your sequence by improving the
+  existing plan rather than adding new actions.
+
+  Below is a description of the environment:
+  Given a robot with one or more gripper hands, transport a number of balls from their starting rooms to their destination rooms.
+
+  Examples of how some actions might be formatted are as follows:
+  - move(robot1,room1,room2) to move robot robot1 from room room1 to room room2
+  - pick(robot1,ball2,room3,gripper3) to have robot robot1 pick up ball ball2 using gripper gripper3 in room room3
+  - drop(robot1,ball2,room3,gripper3) to have robot robot1 drop ball ball2 using gripper gripper3 in room room3
+
+examples:
+- description: "No examples"

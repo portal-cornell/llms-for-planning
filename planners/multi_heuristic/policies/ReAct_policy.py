@@ -11,6 +11,7 @@ import openai
 import re
 from copy import deepcopy
 from .policy import PlanPolicy
+from . import utils
 
 class ReActPolicy(PlanPolicy):
     """A plan policy that queries an LLM to think and act in an environment while receiving feedback."""
@@ -26,6 +27,8 @@ class ReActPolicy(PlanPolicy):
                     The Hydra configurations for the LLM policy.
                 planner (dict)
                     The Hydra configurations for the planner.
+                domain (str)
+                    Name of domain (default is "blocksworld")
         """
         super().__init__(kwargs)
         self.prompt_fn = kwargs["prompt_fn"]
@@ -52,6 +55,8 @@ class ReActPolicy(PlanPolicy):
         self.next_state = None
         
         self.done = False
+
+        self.domain = kwargs.get("domain", "blocksworld")
     
     def is_done(self):
         """Returns whether the policy is done.
@@ -135,6 +140,29 @@ class ReActPolicy(PlanPolicy):
         """
         self.goal = goal
         return None
+
+    def prompt_for_state(self, state, model, is_goal):
+        """Converts state to string
+
+        Parameters:
+            state (object)
+                The current state of the environment.
+            model (Model)
+                The model to propose actions with.
+            is_goal (bool)
+                Whether or not the state object is for a goal state
+            domain (str)
+                Name of the domain
+        
+        Returns:
+            state_description (str)
+                Natural language description of state
+        """
+        state_str = utils.pretty_pddl_state(state, model, is_goal, self.domain)
+        if self.domain in ["blocksworld", "grippers"]:
+            return self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])[0]
+        else:
+            return state_str
     
     def propose_actions(self, graph, model, state, plan):
         """Proposes an action(s) to take in order to reach the goal.
@@ -166,20 +194,18 @@ class ReActPolicy(PlanPolicy):
             if self.state_descriptions.get(state_hash):
                 state_description = self.state_descriptions[state_hash]
             else:
-                state_str = model.state_to_str(state)
-                state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])
+                state_description = self.prompt_for_state(state, model, False)
                 self.state_descriptions[state_hash] = state_description
 
             # Goal State: ...
             if self.goal_description:
                 goal_description = self.goal_description
             else:
-                goal_description = model.goal_to_str(state, self.goal)
-                goal_description, _ = self._prompt_llm(goal_description, self.state_translation_prompt_params, history=[])
+                goal_description = self.prompt_for_state(self.goal, model, True)
                 self.goal_description = goal_description
             
             # Valid Actions: ...
-            valid_actions = model.get_valid_actions(state)
+            valid_actions = [utils.pretty_pddl_actions(str(a), self.domain) for a in model.get_valid_actions(state)]
             valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
 
             action_proposal_prompt += f"Current State:\n{state_description}\n"
@@ -204,12 +230,17 @@ class ReActPolicy(PlanPolicy):
                 feedback_steps += 1
                 continue
             action = match.group(1)
-            action = action.replace(" ", "") # Remove spaces
+            if self.domain != 'logistics':
+                action = action.replace(" ", "") # Remove spaces
             valid_actions = model.get_valid_actions(state)
-            matching_action = list(filter(lambda x: str(x) == action, valid_actions))
-            if len(matching_action) == 0:
+            valid_actions_converted = [utils.pretty_pddl_actions(str(a), self.domain) for a in valid_actions]
+            filtered = list(filter(lambda tup: tup[1] == action, enumerate(valid_actions_converted)))
+            if len(filtered) == 0:
                 self.action_feedback_msg = f"The action '{action}' is not valid. Please provide a valid action."
                 feedback_steps += 1
+                matching_action = []
+            else:
+                matching_action = [valid_actions[filtered[0][0]]]
         return matching_action
     
     def compute_next_states(self, graph, model, current_state, actions):

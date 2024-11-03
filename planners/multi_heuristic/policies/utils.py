@@ -3,6 +3,7 @@ This module contains utility functions that can be shared across different polic
 """
 import string
 import ast
+import re
 from copy import deepcopy
 
 def get_actions_to_propose_cheap(graph, model, state):
@@ -151,3 +152,106 @@ def map_llm_action_sokoban(action_str):
             parsed_action = f'push(f{start_r}-{start_c}f:loc,f{end_r}-{end_c}f:loc,f{block_end_r}-{block_end_c}f:loc,{direction}:dir)'
     
     return parsed_action
+
+def convert_logistics_states(state, model, is_goal=False):
+    if not is_goal:
+        state_str = model.state_to_str(state)
+    else:
+        state_str = model.goal_to_str([], state)
+    state_str = state_str.replace(':default', '')
+
+    at_regex = 'at\(([atp])([0-9]+),l([0-9]+)-([0-9]+)\)'
+    in_regex = 'in\(p([0-9]+),([ta])([0-9]+)\)'
+    airport_regex = 'airport\(l([0-9]+)-([0-9]+)\)'
+    
+    processed_predicates = []
+    for m in re.findall(airport_regex, state_str):
+        loc_1, loc_2 = m
+        pred = f'there is an airport at location {loc_1}-{loc_2}'
+        processed_predicates.append(pred)
+
+    for m in re.findall(at_regex, state_str):
+        obj_type, obj_num, loc_1, loc_2 = m
+        loc_pred = f'location {loc_1}-{loc_2} is in city {loc_1}'
+        obj = {'a': 'airplane', 't': 'truck', 'p': 'package'}[obj_type]
+        obj_pred = f'{obj} {obj_num} is in location {loc_1}-{loc_2}'
+        for pred in [loc_pred, obj_pred]:
+            if not pred in processed_predicates:
+                processed_predicates.append(pred)
+    
+    for m in re.findall(in_regex, state_str):
+        package_num, obj_type, obj_num = m
+        obj = {'a': 'airplane', 't': 'truck', 'p': 'package'}[obj_type]
+        pred = f'package {package_num} is in {obj} {obj_num}'
+        if not pred in processed_predicates:
+            processed_predicates.append(pred)
+    
+    return '\n'.join(processed_predicates)
+
+def convert_grippers_states(state, model, is_goal=False):
+    if not is_goal:
+        state_str = model.state_to_str(state)
+    else:
+        state_str = model.goal_to_str([], state)
+    for s in ['robot', 'object', 'gripper', 'room']:
+        state_str = state_str.replace(f':{s}', '')
+    return state_str
+
+def pretty_pddl_state(state, model, is_goal, domain="blocksworld"):
+    if domain == 'logistics':
+        return convert_logistics_states(state, model, is_goal)
+    elif domain == 'grippers':
+        return convert_grippers_states(state, model, is_goal)
+    else:
+        if not is_goal:
+            state_str = model.state_to_str(state)
+        else:
+            state_str = model.goal_to_str([], state)
+        return state_str
+
+def translate_logistics_actions(action_str):
+    action_str = action_str.replace(':default', '')
+    load_truck_regex = 'load-truck\(p([0-9]+),t([0-9]+),l([0-9]+)-([0-9]+)\)'
+    load_airplane_regex = 'load-airplane\(p([0-9]+),a([0-9]+),l([0-9]+)-([0-9]+)\)'
+    unload_truck_regex = 'unload-truck\(p([0-9]+),t([0-9]+),l([0-9]+)-([0-9]+)\)'
+    unload_airplane_regex = 'unload-airplane\(p([0-9]+),a([0-9]+),l([0-9]+)-([0-9]+)\)'
+    drive_truck_regex = 'drive-truck\(t([0-9]+),l([0-9]+)-([0-9]+),l([0-9]+)-([0-9]+),c([0-9]+)\)'
+    fly_airplane_regex = 'fly-airplane\(a([0-9]+),l([0-9]+)-([0-9]+),l([0-9]+)-([0-9]+)\)'
+
+    if action_str.startswith('load-truck'):
+        m = re.search(load_truck_regex, action_str)
+        package_num, truck_num, city_num, loc_num = [m.group(i) for i in range(1,5)]
+        return f'load package {package_num} onto truck {truck_num} at location {city_num}-{loc_num}'
+    elif action_str.startswith('load-airplane'):
+        m = re.search(load_airplane_regex, action_str)
+        package_num, plane_num, city_num, loc_num = [m.group(i) for i in range(1,5)]
+        return f'load package {package_num} onto airplane {plane_num} at location {city_num}-{loc_num}'
+    elif action_str.startswith('unload-truck'):
+        m = re.search(unload_truck_regex, action_str)
+        package_num, truck_num, city_num, loc_num = [m.group(i) for i in range(1,5)]
+        return f'unload package {package_num} from truck {truck_num} at location {city_num}-{loc_num}'
+    elif action_str.startswith('unload-airplane'):
+        m = re.search(unload_airplane_regex, action_str)
+        package_num, plane_num, city_num, loc_num = [m.group(i) for i in range(1,5)]
+        return f'unload package {package_num} from airplane {plane_num} at location {city_num}-{loc_num}'
+    elif action_str.startswith('drive-truck'):
+        m = re.search(drive_truck_regex, action_str)
+        truck_num, loc_11, loc_12, loc_21, loc_22, city_num = [m.group(i) for i in range(1, 7)]
+        return f'drive truck {truck_num} from location {loc_11}-{loc_12} to location {loc_21}-{loc_22} within city {city_num}'
+    else:
+        m = re.search(fly_airplane_regex, action_str)
+        airplane_num, loc_11, loc_12, loc_21, loc_22 = [m.group(i) for i in range(1, 6)]
+        return f'fly airplane {airplane_num} from the airport at location {loc_11}-{loc_12} in city {loc_11} to the airport at location {loc_21}-{loc_22} in city {loc_21}'
+
+def translate_grippers_actions(action_str):
+    for s in ['robot', 'object', 'gripper', 'room']:
+        action_str = action_str.replace(f':{s}', '')
+    return action_str
+
+def pretty_pddl_actions(action_str, domain):
+    if domain == 'logistics':
+        return translate_logistics_actions(action_str)
+    elif domain == 'grippers':
+        return translate_grippers_actions(action_str)
+    else:
+        return action_str

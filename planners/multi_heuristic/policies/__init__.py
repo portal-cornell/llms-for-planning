@@ -1,7 +1,6 @@
 from .random_policy import RandomPolicy
 from .llm_policy import LLMPolicy
 from .ReAct_policy import ReActPolicy
-from .ReAct_robotouille_policy import ReActRobotouillePolicy
 from .backtrack_policy import BacktrackPolicy
 from .lazy_policy import LazyPolicy
 from .lazy_robotouille_policy import LazyRobotouillePolicy
@@ -14,7 +13,6 @@ NAME_TO_POLICY = {
     "random": RandomPolicy,
     "llm": LLMPolicy,
     "ReAct": ReActPolicy,
-    "ReAct_robotouille": ReActRobotouillePolicy,
     "backtrack": BacktrackPolicy,
     "lazy": LazyPolicy,
     "lazy_robotouille": LazyRobotouillePolicy,

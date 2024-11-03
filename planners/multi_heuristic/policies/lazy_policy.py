@@ -25,6 +25,8 @@ class LazyPolicy(PlanPolicy):
                     The Hydra configurations for the LLM policy.
                 planner (dict)
                     The Hydra configurations for the planner.
+                domain (str)
+                    Name of domain (default is "blocksworld")
         """
         super().__init__(kwargs)
         self.prompt_fn = kwargs["prompt_fn"]
@@ -50,6 +52,8 @@ class LazyPolicy(PlanPolicy):
 
         self.chat_history = []
         self.done = False
+
+        self.domain = kwargs.get("domain", "blocksworld")
         
     
     def is_done(self):
@@ -163,6 +167,29 @@ class LazyPolicy(PlanPolicy):
             return utils.get_actions_to_propose_cheap(graph, model, state)
         return utils.get_actions_to_propose(graph, model, state)
     
+    def prompt_for_state(self, state, model, is_goal):
+        """Converts state to string
+
+        Parameters:
+            state (object)
+                The current state of the environment.
+            model (Model)
+                The model to propose actions with.
+            is_goal (bool)
+                Whether or not the state object is for a goal state
+            domain (str)
+                Name of the domain
+        
+        Returns:
+            state_description (str)
+                Natural language description of state
+        """
+        state_str = utils.pretty_pddl_state(state, model, is_goal, self.domain)
+        if self.domain in ["blocksworld", "grippers"]:
+            return self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])[0]
+        else:
+            return state_str
+
     def propose_actions(self, graph, model, state, plan):
         """Proposes an action(s) to take in order to reach the goal.
         
@@ -197,8 +224,7 @@ class LazyPolicy(PlanPolicy):
             if self.state_descriptions.get(visited_state_hash):
                 state_description = self.state_descriptions[visited_state_hash]
             else:
-                state_str = model.state_to_str(visited_state)
-                state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])
+                state_description = self.prompt_for_state(visited_state, model, False)
                 self.state_descriptions[visited_state_hash] = state_description
             visited_state_description += f"{action}:\n{state_description}\n"
         self.action_and_visited_state = [] # Reset visited states
@@ -208,20 +234,18 @@ class LazyPolicy(PlanPolicy):
         if self.state_descriptions.get(initial_state_hash):
             initial_state_description = self.state_descriptions[initial_state_hash]
         else:
-            state_str = model.state_to_str(self.initial_state)
-            initial_state_description, _ = self._prompt_llm(state_str, self.state_translation_prompt_params, history=[])
+            initial_state_description = self.prompt_for_state(self.initial_state, model, False)
             self.state_descriptions[initial_state_hash] = initial_state_description
         
         # Valid Actions: ...
-        valid_actions = model.get_valid_actions(state)
+        valid_actions = [utils.pretty_pddl_actions(str(a), self.domain) for a in model.get_valid_actions(state)]
         valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
 
         # Goal State: ...
         if self.goal_description:
             goal_description = self.goal_description
         else:
-            goal_description = model.goal_to_str(state, self.goal)
-            goal_description, _ = self._prompt_llm(goal_description, self.state_translation_prompt_params, history=[])
+            goal_description = self.prompt_for_state(self.goal, model, True)
             self.goal_description = goal_description
         
         action_plan_proposal_prompt += f"\nStates Visited:\n{visited_state_description}\n"
@@ -246,7 +270,7 @@ class LazyPolicy(PlanPolicy):
             self.chat_history.append(action_plan_proposal_response)
             return []
         action_sequence_str = action_sequence_match.group(1)
-        action_sequence_list = [action.replace(" ", "") for action in action_sequence_str.split(", ")]
+        action_sequence_list = [(action.replace(" ", "") if self.domain != 'logistics' else action) for action in action_sequence_str.split(", ")]
 
         # Extract reflect
         reflect_regex = r"Reflect:\s*(.+)"
@@ -286,6 +310,7 @@ class LazyPolicy(PlanPolicy):
             curr_model = model_copy
             # Get valid action
             valid_actions = model_copy.get_valid_actions(curr_state)
+            valid_actions_converted = [utils.pretty_pddl_actions(str(a), self.domain) for a in valid_actions]
             # # Parse action like stack(a:default,b:default) and pick-up(a:default) to stack(a,b) and pick-up(a)
             # typeless_action_regex = r"(\w+)\((.*)\)"
             # typeless_action_match = re.match(typeless_action_regex, action)
@@ -296,12 +321,12 @@ class LazyPolicy(PlanPolicy):
             #     action_args = [arg.split(':')[0] for arg in split_args]
             #     typeless_action = f"{action_name}({','.join(action_args)})"
 
-            matching_action = list(filter(lambda x: str(x) == action, valid_actions))
-            if len(matching_action) == 0:
-                valid_actions_str = "\n".join([f"- {action}" for action in valid_actions])
+            filtered = list(filter(lambda tup: tup[1] == action, enumerate(valid_actions_converted)))
+            if len(filtered) == 0:
+                valid_actions_str = "\n".join([f"- {action}" for action in valid_actions_converted])
                 self.action_plan_feedback_msg = f"The action '{action}' at index {i} was invalid. Below are the actions that were valid at that state:\n{valid_actions_str}"
                 return
-            matching_action = matching_action[0]
+            matching_action = valid_actions[filtered[0][0]]
             # Simulate action
             next_state, _, _, _, _ = model_copy.env.step(matching_action)
             graph.add_node(hash(next_state), state=next_state, model=model_copy)

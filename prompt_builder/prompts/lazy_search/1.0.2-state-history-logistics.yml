@@ -1,0 +1,67 @@
+version: 1.0.0
+experiment_name: lazy_search
+prompt_description: state-history
+prompt_version: 1.0.2
+system: |
+  Follow the instructions exactly as they are written.
+instructions: |
+  You must propose a sequence of actions given previous interactions with the environment
+  from the starting state to the goal state.
+
+  You will receive the initial state and the goal as follows:
+  Optional[Error Feedback: ...]
+  States Visited: ...
+  <action1>: ...
+  <action2>: ...
+  ...
+  <actionN>: ...
+  Starting State: ...
+  Valid Actions: ...
+  Goal State: ...
+
+  where
+  - 'States Visited' are the states you visited in your previous action sequence
+    - This will be empty if this is your first action sequence
+    - Each action will be followed by the state that resulted from executing that action
+  - 'Starting State' is the state you will start from
+  - 'Valid Actions' are the actions you can take in the starting state
+  - 'Goal State' is the state you need to reach to achieve the goal
+  - 'Error Feedback' includes feedback about either
+    - the sequence of actions you proposed in the previous step included an invalid action
+    - the sequence of actions you proposed in the previous step did not reach the goal state
+
+  Always format your response EXACTLY as follows:
+  Reflect: ...
+  Think: ...
+  Action Sequence: <action1>, <action2>, ..., <actionN>
+
+  where:
+  - 'Reflect' includes lessons learned about the rules of the environment
+    - Upon receiving error feedback, reflect on the feedback and propose a new plan
+      - If the action is invalid, first verify that the action isn't malformed
+        - Refer to the action format in the environment description
+      - If it isn't malformed, consider why the action is invalid at that state
+    - Consider which action(s) in the previous sequence led to the error
+  - 'Think' includes your thought process for the next action sequence to propose
+    - Use your current and previous reflections to inform the next action sequence
+  - 'Action Sequence' is the sequence of actions you propose to take in the environment from the starting state to the goal state
+    - This sequence should be a comma-separated list of actions
+    - Each action should be formatted EXACTLY to match the templates in the environment description. The actions should be contained within 1 line and not contain extra comments.
+  
+  Note that the action sequence must always start from the 'Starting State' and end at the 'Goal State'.
+  Also note that the state is reset after each action sequence so you will need to repeat any actions 
+  that you want to persist. Try to minimize the number of actions in your sequence by improving the
+  existing plan rather than adding new actions.
+
+  Below is a description of the environment:
+  Transport packages within cities via trucks, and between cities via airplanes. Locations within a city are directly connected (trucks can move between any two such locations), and so are the cities. In each city there is exactly one truck, each city has one location that serves as an airport.
+  
+  The actions formats and their descriptions/precondtions are as follows:
+  - "load package <p> onto truck <t> at location <l>": loads package <p> onto truck <t> at location <l> (precondition is that package <p> and truck <t> are both at location <l>)
+  - "load package <p> onto airplane <a> at location <l>": loads package <p> onto airplane <a> at location <l> (precondition is that package <p> and airplane <a> are both at location <l>)
+  - "unload package <p> from truck <t> at location <l>": unloads package <p> from truck <t> at location <l> (precondition is that package <p> is in truck <t> and truck <t> is at location <l>)
+  - "unload package <p> from airplane <a> at location <l>": unloads package <p> from airplane <a> at location <l> (precondition is that package <p> is in airplane <a> and airplane <a> is at location <l>)
+  - "drive truck <t> from location <l1> to location <l2> within city <c>": drives a truck <t> from location <l1> to location <l2> within city <c> (preconditions are that truck <t> is at location <l1>, locations <l1> and <l2> are both in city <c> and are different)
+  - "fly airplane <a> from the airport at location <l1> in city <c1> to the airport at location <l2> in city <c2>": flies airplane <a> between locations <l1> and <l2> in cities <c1> and <c2>, respectively (preconditions are that airplane <a> is at location <l1>, location <l1> has an airport in city <c1>, location <l2> has an airport in city <c2>, and cities <c1> and <c2> are different)
+examples:
+- description: "No examples"
