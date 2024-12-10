@@ -138,6 +138,7 @@ class ReActPolicy(PlanPolicy):
         Side Effects:
             - Prompts the LLM to describe the initial state and goal state.
         """
+        self.next_state = initial_state
         self.goal = goal
         return None
 

@@ -93,6 +93,7 @@ def create_pddl_env(domain_file_path, problems_dir_path, render_fn_name):
 
     pddlgym_domain_file_path = add_domain_file(domain_file_path)
     pddlgym_problem_dir_path = add_problem_files(env_name, problems_dir_path)
+
     env = pddlgym.make(f"PDDLEnv{env_name.capitalize()}-v0")
     os.remove(pddlgym_domain_file_path)
     shutil.rmtree(pddlgym_problem_dir_path)
@@ -517,5 +518,10 @@ def get_optimal_plan(domain, initial_state, alias="a*-lmcut"):
             The statistics for the planner.
     """
     planner = FD(alias_flag=f"--alias {alias}")
-    plan = planner(domain, initial_state)
+    try:
+        plan = planner(domain, initial_state)
+    except Exception as e:
+        print(f"Error when calculating optimal plan: {e}")
+        plan = []
+        statistics = {}
     return plan, planner._statistics
